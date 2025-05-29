@@ -123,7 +123,8 @@ const App = () => {
                 <div className="max-w-4xl w-full content-container shadow-lg rounded-lg p-8">
                     {page === 1 && (
                         <div className="text-center">
-                            <h1 className="text-4xl font-bold mb-6">Color Personality Test</h1>
+                            <h1 className="text-5xl font-bold mb-6 swirl-text">Color Personality Test</h1>
+                            <p className="text-accent mb-6">Discover your personality type based on your color preferences!</p>
                             <button
                                 onClick={() => setPage(2)}
                                 className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-primary transition duration-200"
