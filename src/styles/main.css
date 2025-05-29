@@ -7,16 +7,16 @@ body {
 }
 
 .swirl-text {
-    background: linear-gradient(45deg, #ef4444, #10b981, #3b82f6, #800080, #ef4444);
-    background-size: 200%;
-    background-clip: text;
+    background: linear-gradient(45deg, #2563eb, #3b82f6, #60a5fa, #93c5fd);
     -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    animation: gradient-swirl 3s ease infinite;
+    background-clip: text;
+    color: transparent;
+    animation: gradient 6s ease infinite;
+    background-size: 300% 300%;
 }
 
 .content-container {
-    background: rgba(255, 255, 255, 0.9);
+    background: linear-gradient(135deg, #ffffff 0%, #f3f4f6 100%);
 }
 
 .app-container {
@@ -183,11 +183,11 @@ h1 {
 }
 
 .loading-spinner {
-    width: 40px;
-    height: 40px;
-    border: 3px solid rgba(30, 58, 138, 0.1);
+    width: 50px;
+    height: 50px;
+    border: 5px solid #f3f4f6;
+    border-top: 5px solid #2563eb;
     border-radius: 50%;
-    border-top-color: #1e3a8a;
     animation: spin 1s linear infinite;
 }
 
@@ -222,9 +222,8 @@ h1 {
 
 /* Keyframe animations */
 @keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 @keyframes fadeIn {
@@ -256,13 +255,9 @@ h1 {
     }
 }
 
-/* Theme color variables */
+/* Tailwind Custom Colors */
 :root {
-    --color-primary: #1e3a8a;
+    --color-primary: #2563eb;
     --color-secondary: #f3f4f6;
-    --color-accent: #6b7280;
-    --color-yellow: #f59e0b;
-    --color-green: #10b981;
-    --color-red: #ef4444;
-    --color-blue: #3b82f6;
+    --color-accent: #374151;
 }
