@@ -406,181 +406,196 @@
         .sort((a, b) => b.score - a.score);
 
       const handleDownloadPDF = (userName) => {
-        console.log("Download button clicked, generating PDF...");
-        try {
-          const doc = new jsPDF();
-          let yPosition = 20; // Initial vertical position
+            console.log("Download button clicked, generating PDF...");
+            try {
+              const doc = new jsPDF();
+              let yPosition = 20; // Initial vertical position
 
-          const addNewPage = () => {
-            doc.addPage();
-            yPosition = 20; // Reset vertical position for the new page
-          };
+              const addNewPage = () => {
+                doc.addPage();
+                yPosition = 20; // Reset vertical position for the new page
+              };
 
-          const checkPageHeight = (additionalHeight) => {
-            if (yPosition + additionalHeight > 270) { // Check if content exceeds page height
+              const checkPageHeight = (additionalHeight) => {
+                if (yPosition + additionalHeight > 270) { // Increased margin at bottom
+                  addNewPage();
+                }
+              };
+
+              // Add user's name
+              doc.setFontSize(14);
+              doc.setTextColor(30, 58, 138);
+              doc.text(`Results for: ${userName || "Anonymous"}`, 20, yPosition);
+              yPosition += 15;
+
+              // Add title
+              doc.setFontSize(16);
+              doc.text("Color Personality Test Results", 20, yPosition);
+              yPosition += 15;
+
+              // Add score totals
+              doc.setFontSize(12);
+              doc.setTextColor(107, 114, 128);
+              doc.text("Score Totals (Higher Scores Indicate Stronger Alignment)", 20, yPosition);
+              yPosition += 10;
+
+              sortedResults.forEach(({ color, score }) => {
+                checkPageHeight(8);
+                doc.setFontSize(10);
+                doc.text(`${color.charAt(0).toUpperCase() + color.slice(1)}: ${score} points`, 20, yPosition);
+                yPosition += 8;
+              });
+
+              // Add personality types and explanations
               addNewPage();
+              doc.setFontSize(12);
+              doc.text("Personality Types and Explanations", 20, yPosition);
+              yPosition += 10;
+
+              sortedResults.forEach(({ color, type, explanation }) => {
+                checkPageHeight(12);
+                doc.setFontSize(11);
+                doc.setTextColor(0, 0, 0);
+                doc.text(`${color.charAt(0).toUpperCase()} - ${type}`, 20, yPosition);
+                yPosition += 8;
+
+                doc.setFontSize(9);
+                const cleanExplanation = explanation.replace(/<strong>|<\/strong>/g, '');
+                const splitText = doc.splitTextToSize(cleanExplanation.trim(), 170);
+                splitText.forEach(line => {
+                  checkPageHeight(5);
+                  doc.text(line, 20, yPosition);
+                  yPosition += 5;
+                });
+                yPosition += 8;
+              });
+
+              // Function to draw table cell with auto-wrapping text
+              const drawTableCell = (text, x, y, width, lineHeight = 5) => {
+                const lines = doc.splitTextToSize(text, width - 4);
+                let currentY = y + 4;
+                lines.forEach(line => {
+                  doc.text(line, x + 2, currentY);
+                  currentY += lineHeight;
+                });
+                return lines.length * lineHeight;
+              };
+
+              // Function to draw table borders
+              const drawTableBorders = (x, y, width, height) => {
+                doc.setDrawColor(128, 128, 128);
+                doc.setLineWidth(0.1);
+                // Draw outer borders
+                doc.rect(x, y, width, height);
+              };
+
+              // Add sections with improved table formatting
+              sections.forEach(section => {
+                addNewPage();
+                doc.setFontSize(14);
+                doc.setTextColor(30, 58, 138);
+                doc.text(section.title, 20, yPosition);
+                yPosition += 10;
+
+                doc.setFontSize(9);
+                doc.setTextColor(0, 0, 0);
+
+                // Table configuration
+                const tableStartX = 20;
+                const labelWidth = 60;
+                const valueWidth = 130;
+                const tableWidth = labelWidth + valueWidth;
+                const cellPadding = 4;
+                
+                section.content.forEach(item => {
+                  checkPageHeight(10);
+                  const startY = yPosition;
+
+                  // Draw label cell
+                  const labelHeight = drawTableCell(item.label, tableStartX, startY, labelWidth);
+                  
+                  // Draw value cell
+                  const valueHeight = drawTableCell(item.value, tableStartX + labelWidth, startY, valueWidth);
+                  
+                  // Use the taller height for the row
+                  const rowHeight = Math.max(labelHeight, valueHeight) + cellPadding * 2;
+                  
+                  // Draw cell borders
+                  drawTableBorders(tableStartX, startY, labelWidth, rowHeight);
+                  drawTableBorders(tableStartX + labelWidth, startY, valueWidth, rowHeight);
+                  
+                  yPosition = startY + rowHeight + 2;
+                });
+
+                yPosition += 5;
+              });
+
+              // Add personality summary table with improved formatting
+              addNewPage();
+              doc.setFontSize(14);
+              doc.setTextColor(30, 58, 138);
+              doc.text(additionalContent.personalitySummary.title, 20, yPosition);
+              yPosition += 10;
+
+              doc.setFontSize(9);
+              doc.setTextColor(0, 0, 0);
+
+              // Summary table configuration
+              const summaryTableConfig = {
+                startX: 20,
+                columnWidths: [40, 35, 35, 35, 35],
+                rowHeight: 8,
+                cellPadding: 2
+              };
+
+              additionalContent.personalitySummary.table.forEach(row => {
+                checkPageHeight(15);
+                const startY = yPosition;
+                let maxHeight = 0;
+
+                // Calculate maximum height needed for this row
+                const allTexts = [
+                  row.header,
+                  row.promoter,
+                  row.planner,
+                  row.producer,
+                  row.peacekeeper
+                ];
+
+                let currentX = summaryTableConfig.startX;
+                allTexts.forEach((text, index) => {
+                  const lines = doc.splitTextToSize(text, summaryTableConfig.columnWidths[index] - 4);
+                  const cellHeight = lines.length * summaryTableConfig.rowHeight;
+                  maxHeight = Math.max(maxHeight, cellHeight);
+
+                  // Draw cell content
+                  let currentY = startY + summaryTableConfig.cellPadding;
+                  lines.forEach(line => {
+                    doc.text(line, currentX + 2, currentY);
+                    currentY += summaryTableConfig.rowHeight;
+                  });
+
+                  // Draw cell borders
+                  drawTableBorders(
+                    currentX,
+                    startY,
+                    summaryTableConfig.columnWidths[index],
+                    maxHeight + summaryTableConfig.cellPadding * 2
+                  );
+
+                  currentX += summaryTableConfig.columnWidths[index];
+                });
+
+                yPosition = startY + maxHeight + summaryTableConfig.cellPadding * 2 + 2;
+              });
+
+              // Save the PDF
+              doc.save(`personality_test_results_${userName || "anonymous"}.pdf`);
+              console.log("PDF generated and download initiated.");
+            } catch (error) {
+              console.error("Error generating PDF:", error);
             }
           };
-
-          // Add user's name
-          doc.setFontSize(14);
-          doc.setTextColor(30, 58, 138);
-          doc.text(`Results for: ${userName || "Anonymous"}`, 20, yPosition);
-          yPosition += 10;
-
-          // Add title
-          doc.setFontSize(16);
-          doc.text("Color Personality Test Results", 20, yPosition);
-          yPosition += 10;
-
-          // Add score totals
-          doc.setFontSize(12);
-          doc.setTextColor(107, 114, 128);
-          doc.text("Score Totals (Higher Scores Indicate Stronger Alignment)", 20, yPosition);
-          yPosition += 8;
-
-          sortedResults.forEach(({ color, score }) => {
-            checkPageHeight(6);
-            doc.setFontSize(10);
-            doc.text(`${color.charAt(0).toUpperCase() + color.slice(1)}: ${score} points`, 20, yPosition);
-            yPosition += 6;
-          });
-
-          // Add personality types and explanations
-          addNewPage(); // Start a new page for personality types
-          doc.setFontSize(12);
-          doc.text("Personality Types and Explanations", 20, yPosition);
-          yPosition += 8;
-
-          sortedResults.forEach(({ color, type, explanation }) => {
-            checkPageHeight(10);
-            doc.setFontSize(11);
-            doc.setTextColor(0, 0, 0);
-            doc.text(`${color.charAt(0).toUpperCase()} - ${type}`, 20, yPosition);
-            yPosition += 6;
-
-            doc.setFontSize(9);
-            const cleanExplanation = explanation.replace(/<strong>|<\/strong>/g, '');
-            const splitText = doc.splitTextToSize(cleanExplanation.trim(), 170);
-            splitText.forEach(line => {
-              checkPageHeight(5);
-              doc.text(line, 20, yPosition);
-              yPosition += 5;
-            });
-            yPosition += 5;
-          });
-
-          // Add additional content sections
-          const sections = [
-            additionalContent.plannerBlue,
-            additionalContent.peacekeeperGreen,
-            additionalContent.producerRed,
-            additionalContent.promoterYellow,
-          ];
-
-          sections.forEach(section => {
-            addNewPage(); // Start a new page for each section
-            doc.setFontSize(14);
-            doc.setTextColor(30, 58, 138);
-            doc.text(section.title, 20, yPosition);
-            yPosition += 10;
-
-            doc.setFontSize(9);
-            doc.setTextColor(0, 0, 0);
-            
-            // Define column positions for the section tables
-            const labelX = 20;
-            const valueX = 80;
-            const tableWidth = 160;
-
-            section.content.forEach(item => {
-              const labelLines = doc.splitTextToSize(item.label, 50);
-              const valueLines = doc.splitTextToSize(item.value, 110);
-              const maxLines = Math.max(labelLines.length, valueLines.length);
-              
-              const startY = yPosition;
-
-              for (let i = 0; i < maxLines; i++) {
-                checkPageHeight(5);
-                const labelText = labelLines[i] || "";
-                const valueText = valueLines[i] || "";
-                doc.text(labelText, labelX, yPosition);
-                doc.text(valueText, valueX, yPosition);
-                yPosition += 5;
-              }
-
-              // Draw grid lines for each row
-              doc.setDrawColor(128, 128, 128);
-              doc.setLineWidth(0.1);
-              doc.line(labelX, startY - 2, labelX + tableWidth, startY - 2);
-              doc.line(labelX, yPosition - 2, labelX + tableWidth, yPosition - 2);
-              
-              // Draw vertical lines
-              doc.line(labelX, startY - 2, labelX, yPosition - 2);
-              doc.line(valueX - 5, startY - 2, valueX - 5, yPosition - 2);
-              doc.line(labelX + tableWidth, startY - 2, labelX + tableWidth, yPosition - 2);
-
-              yPosition += 2;
-            });
-          });
-
-          // Add personality summary table
-          addNewPage(); // Start a new page for the summary
-          doc.setFontSize(14);
-          doc.setTextColor(30, 58, 138);
-          doc.text(additionalContent.personalitySummary.title, 20, yPosition);
-          yPosition += 10;
-
-          doc.setFontSize(9);
-          doc.setTextColor(0, 0, 0);
-          
-          // Define table columns and their positions
-          const columnX = [20, 55, 95, 135, 175];
-          const columnWidth = 35;
-
-          additionalContent.personalitySummary.table.forEach(row => {
-            const headerLines = doc.splitTextToSize(row.header, 30);
-            const promoterLines = doc.splitTextToSize(row.promoter, 35);
-            const plannerLines = doc.splitTextToSize(row.planner, 35);
-            const producerLines = doc.splitTextToSize(row.producer, 35);
-            const peacekeeperLines = doc.splitTextToSize(row.peacekeeper, 35);
-            const maxLines = Math.max(headerLines.length, promoterLines.length, plannerLines.length, producerLines.length, peacekeeperLines.length);
-            
-            const startY = yPosition;
-
-            for (let i = 0; i < maxLines; i++) {
-              checkPageHeight(5);
-              doc.text(headerLines[i] || "", columnX[0], yPosition);
-              doc.text(promoterLines[i] || "", columnX[1], yPosition);
-              doc.text(plannerLines[i] || "", columnX[2], yPosition);
-              doc.text(producerLines[i] || "", columnX[3], yPosition);
-              doc.text(peacekeeperLines[i] || "", columnX[4], yPosition);
-              yPosition += 5;
-            }
-
-            // Draw horizontal lines
-            doc.setDrawColor(128, 128, 128);
-            doc.setLineWidth(0.1);
-            doc.line(columnX[0], startY - 2, columnX[4] + columnWidth, startY - 2);
-            doc.line(columnX[0], yPosition - 2, columnX[4] + columnWidth, yPosition - 2);
-
-            // Draw vertical lines for each column
-            for (let x of columnX) {
-              doc.line(x, startY - 2, x, yPosition - 2);
-            }
-            // Draw the last vertical line
-            doc.line(columnX[4] + columnWidth, startY - 2, columnX[4] + columnWidth, yPosition - 2);
-
-            yPosition += 2;
-          });
-
-          // Save the PDF
-          doc.save(`personality_test_results_${userName || "anonymous"}.pdf`);
-          console.log("PDF generated and download initiated.");
-        } catch (error) {
-          console.error("Error generating PDF:", error);
-        }
-      };
 
       return (
         <div className="mt-8 p-6 border rounded-lg bg-white shadow-sm">
