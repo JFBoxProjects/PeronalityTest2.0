@@ -43,8 +43,64 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Color Personality Test</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
+    window.jspdf = window.jspdf || {};
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#1e3a8a',
+            secondary: '#f3f4f6',
+            accent: '#6b7280',
+            yellow: '#f59e0b',
+            green: '#10b981',
+            red: '#ef4444',
+            blue: '#3b82f6',
+          },
+          animation: {
+            'gradient-swirl': 'gradient-swirl 3s ease infinite',
+          },
+          keyframes: {
+            'gradient-swirl': {
+              '0%, 100%': { 'background-position': '0% 50%' },
+              '50%': { 'background-position': '100% 50%' },
+            },
+          },
+        },
+      },
+    }
+  </script>
+  <style>
+    body {
+      background: linear-gradient(45deg, #ef4444, #10b981, #3b82f6, #800080, #ef4444);
+      background-size: 200% 200%;
+      animation: gradient-swirl 3s ease infinite;
+      min-height: 100vh;
+      margin: 0;
+    }
+    .swirl-text {
+      background: linear-gradient(45deg, #ef4444, #10b981, #3b82f6, #800080, #ef4444);
+      background-size: 200%;
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: gradient-swirl 3s ease infinite;
+    }
+    .content-container {
+      background: rgba(255, 255, 255, 0.9);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.22.10/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script>
+    window.jspdf = window.jspdf || {};
     tailwind.config = {
       theme: {
         extend: {
@@ -107,6 +163,7 @@
     if (typeof window.jspdf === 'undefined') console.error("jsPDF failed to load");
 
     const { useState, useEffect } = React;
+    window.jspdf = window.jspdf || {};
     const { jsPDF } = window.jspdf;
 
     // Error Boundary Component
@@ -405,7 +462,15 @@
         }))
         .sort((a, b) => b.score - a.score);
 
-      const handleDownloadPDF = (userName) => {
+      // Map color to corresponding section content
+      const sections = [
+        additionalContent[`${sortedResults[0].color}${sortedResults[0].type}`],
+        additionalContent[`${sortedResults[1].color}${sortedResults[1].type}`],
+        additionalContent[`${sortedResults[2].color}${sortedResults[2].type}`],
+        additionalContent[`${sortedResults[3].color}${sortedResults[3].type}`]
+      ];
+
+      const handleDownloadPDF = () => {
             console.log("Download button clicked, generating PDF...");
             try {
               const doc = new jsPDF();
