@@ -1,40 +1,736 @@
-<!DOCTYPE html>
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Color Personality Test</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#1e3a8a',
-                        secondary: '#f3f4f6',
-                        accent: '#6b7280',
-                        yellow: '#f59e0b',
-                        green: '#10b981',
-                        red: '#ef4444',
-                        blue: '#3b82f6',
-                    },
-                },
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Color Personality Test</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#1e3a8a',
+            secondary: '#f3f4f6',
+            accent: '#6b7280',
+            yellow: '#f59e0b',
+            green: '#10b981',
+            red: '#ef4444',
+            blue: '#3b82f6',
+          },
+          animation: {
+            'gradient-swirl': 'gradient-swirl 3s ease infinite',
+          },
+          keyframes: {
+            'gradient-swirl': {
+              '0%, 100%': { 'background-position': '0% 50%' },
+              '50%': { 'background-position': '100% 50%' },
             },
-        }
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.development.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.development.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.22.10/babel.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <link rel="stylesheet" href="src/styles/main.css">
+          },
+        },
+      },
+    }
+  </script>
+  <style>
+    body {
+      background: linear-gradient(45deg, #ef4444, #10b981, #3b82f6, #800080, #ef4444);
+      background-size: 200% 200%;
+      animation: gradient-swirl 3s ease infinite;
+      min-height: 100vh;
+      margin: 0;
+    }
+    .swirl-text {
+      background: linear-gradient(45deg, #ef4444, #10b981, #3b82f6, #800080, #ef4444);
+      background-size: 200%;
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: gradient-swirl 3s ease infinite;
+    }
+    .content-container {
+      background: rgba(255, 255, 255, 0.9);
+    }
+  </style>
 </head>
 <body>
-    <div id="root"></div>
-    <script>
-        // Initialize global objects for module compatibility
-        window.React = React;
-        window.ReactDOM = ReactDOM;
-    </script>
-    <script type="text/babel" data-type="module" src="src/main.js"></script>
+  <div id="root"></div>
+  <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.22.10/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script type="text/babel">
+    console.log("Script loaded, checking dependencies...");
+
+    // Verify dependencies
+    if (typeof React === 'undefined') console.error("React failed to load");
+    if (typeof ReactDOM === 'undefined') console.error("ReactDOM failed to load");
+    if (typeof Babel === 'undefined') console.error("Babel failed to load");
+    if (typeof window.jspdf === 'undefined') console.error("jsPDF failed to load");
+
+    const { useState, useEffect } = React;
+    const { jsPDF } = window.jspdf;
+
+    // Error Boundary Component
+    function ErrorBoundary({ children }) {
+      const [hasError, setHasError] = useState(false);
+
+      useEffect(() => {
+        const handleError = (error) => {
+          console.error("ErrorBoundary caught an error:", error);
+          setHasError(true);
+        };
+        window.addEventListener('error', handleError);
+        return () => window.removeEventListener('error', handleError);
+      }, []);
+
+      if (hasError) {
+        return (
+          <div className="text-red-500 p-4 text-center">
+            Something went wrong. Please check the console (F12) for details and refresh the page.
+          </div>
+        );
+      }
+
+      return children;
+    }
+
+    const questions = [
+      { id: 1, prompt: "I am:", options: { yellow: "Encourager", blue: "Deep thinker", red: "Doer", green: "Listener" } },
+      { id: 2, prompt: "I am:", options: { yellow: "Motivator", blue: "Organizer", red: "Achiever", green: "Mediator" } },
+      { id: 3, prompt: "I am:", options: { yellow: "Charismatic", blue: "Realistic", red: "Dynamic", green: "Diplomatic" } },
+      { id: 4, prompt: "I am:", options: { yellow: "Stimulating", blue: "Systematic", red: "Decisive", green: "Accommodating" } },
+      { id: 5, prompt: "I am:", options: { yellow: "Spontaneous", blue: "Perfectionist", red: "Risking", green: "Accepting" } },
+      { id: 6, prompt: "I am:", options: { yellow: "Cheerful", blue: "Purposeful", red: "Forceful", green: "Tactful" } },
+      { id: 7, prompt: "I am:", options: { yellow: "Promoter", blue: "Planner", red: "Producer", green: "Supporter" } },
+      { id: 8, prompt: "I am:", options: { yellow: "Interrupts", blue: "Critical", red: "Impatient", green: "Indifferent" } },
+      { id: 9, prompt: "I am:", options: { yellow: "Unfocused", blue: "Pessimistic", red: "Controlling", green: "Indecisive" } },
+      { id: 10, prompt: "I am:", options: { yellow: "Persuasive", blue: "diligent", red: "Competitive", green: "Compassionate" } },
+      { id: 11, prompt: "I am motivated by:", options: { yellow: "Fun & freedom", blue: "Belonging & contributing", red: "Power & results", green: "Peace & balance" } },
+      { id: 12, prompt: "I like:", options: { yellow: "Variety & activity", blue: "Facts, data & order", red: "Bottom line results", green: "Low key situations" } },
+      { id: 13, prompt: "I fear:", options: { yellow: "Loss of relationship", blue: "Change & disorder", red: "Loss of control", green: "Loss of harmony" } },
+      { id: 14, prompt: "I need to be:", options: { yellow: "Affirmed & recognized", blue: "Appreciated for my quality work", red: "Respected for my accomplishments", green: "Accepted for who I am" } },
+      { id: 15, prompt: "I am known for:", options: { yellow: "Knowing how to have a good time", blue: "Doing things right", red: "Making things happen", green: "Making people feel accepted" } },
+      { id: 16, prompt: "At work I would be described as:", options: { yellow: "Outgoing & social", blue: "accurate & reliable", red: "Direct & driven", green: "Patient & neutral" } },
+      { id: 17, prompt: "I like being with people who are:", options: { yellow: "Verbally open & casual", blue: "Thoughtful & do their part", red: "Competent & get their job done", green: "Caring & kind" } },
+      { id: 18, prompt: "A key part of who I am is:", options: { yellow: "My relationships with others", blue: "My organization & systems", red: "My accomplishments", green: "My stability" } },
+      { id: 19, prompt: "I am frustrated by:", options: { yellow: "Routine/repetition", blue: "Unpredictability", red: "Incompetence", green: "Insensitivity" } },
+      { id: 20, prompt: "Under stress I become:", options: { yellow: "Fragmented & disorganized", blue: "Moody & withdrawn", red: "Dictatorial & assertive", green: "Overwhelmed & tired" } },
+    ];
+
+    const personalityTypes = {
+      yellow: {
+        type: "Promoter",
+        explanation: `
+          <strong>Promoter (Yellow)</strong>: As a Promoter, you thrive in dynamic, social environments where you can inspire and motivate others. Your role as a motivator drives you to encourage fun and enthusiasm, seeking attention, applause, and recognition. You value relationships and freedom, excelling as a brainstormer, encourager, and charismatic communicator. Your strengths include creativity, optimism, and articulate expression, making you adept at understanding people's aspirations and recruiting others to your vision. However, you may struggle with disorganization, impulsiveness, or appearing unrealistic or obnoxious. You focus on possibilities and relationships, preferring a stimulating, fast-paced office with a congenial atmosphere. Your decisions are spontaneous and heart-driven, and you enjoy the challenge of starting new projects. Others may see you as "Scatteriffic" or an "Adorable Flake," reflecting your energetic but sometimes unfocused nature.
+        `,
+      },
+      blue: {
+        type: "Planner",
+        explanation: `
+          <strong>Planner (Blue)</strong>: As a Planner, you are a problem-solver who values belonging and contributing to a team. Your motives center on appreciation, acceptance, and order, with a need for accuracy and security. Your strengths lie in integrity, organization, sincerity, and reliability, making you a thoughtful and practical individual. You excel at applying facts and experience to plan and solve problems, preferring an organized, functional office environment. Your communication is indirect, detailed, and factual, often favoring written messages. However, you may come across as self-righteous, perfectionistic, or critical, and can be prone to worry or moodiness. You focus on facts, tasks, and quality, with calculated, head-driven decisions. You enjoy developing systems and processes, but others might label you as "Anal Retentive" or "Nit-picky" due to your meticulous nature.
+        `,
+      },
+      red: {
+        type: "Producer",
+        explanation: `
+          <strong>Producer (Red)</strong>: As a Producer, you are a driven leader motivated by power and results. You seek approval, respect, and the need to be right, with a strong desire for control and leadership. Your strengths include decisiveness, confidence, competence, and vision, making you an influential doer who excels at developing concepts and achieving goals. Your communication is direct, authoritative, and logical, focusing on the bottom line without emotional embellishment. You prefer an efficient, effective, and productive office environment, thriving on the completion of tasks and winning outcomes. However, you may be perceived as domineering, selfish, or insensitive, with tendencies toward manipulation or arrogance. Your decisions are decisive and head-driven, but others might call you "Ruthless" or "Attila the Hun" due to your assertive nature.
+        `,
+      },
+      green: {
+        type: "Peacekeeper",
+        explanation: `
+          <strong>Peacekeeper (Green)</strong>: As a Peacekeeper, you are a diplomat who seeks peace and balance, valuing acceptance, respect, and independence. Your motives center on stability and contentment, with strengths in clarity, listening, diplomacy, and kindness. You are patient, moderate, and adaptable, excelling at collaborating and mediating to meet the daily concerns of people. Your communication is indirect, empathetic, and calm, though you may hesitate to speak up. You prefer a friendly, casual office with an open-door policy, enjoying involvement and relationships. However, you can be indecisive, unmotivated, or stubborn, and may feel overwhelmed under pressure. Your decisions are consultative and heart-driven, focusing on facts and relationships. Others may see you as "Ignored" or a "Softie," reflecting your gentle, accommodating demeanor.
+        `,
+      },
+    };
+
+    const additionalContent = {
+      plannerBlue: {
+        title: "PLANNER (Blue) - The Melancholy",
+        content: [
+          { label: "Temperament", value: "Perfectionist, Analytical, Soft spoken" },
+          { label: "Main Scripture", value: "Phil 4:8-9" },
+          { label: "Ornamental Tree/The Structured Martha", value: '"Let\'s do it right way"' },
+          { label: "People say", value: "We give you the job, that we want done correctly; don't be so serious, live a little!, Can you just look on the bright side for once!" },
+          { label: "Personality Type", value: "Planner, Conscientious," },
+          { label: "Roles", value: "Problem-solver" },
+          { label: "Motives", value: "Belonging and contributing" },
+          { label: "Needs", value: "Appreciation, Acceptance, Order" },
+          { label: "Wants", value: "Accuracy, Security" },
+          { label: "Strengths", value: "Integrity, Organizer, Sincere, Reliable, Practical, Thoughtful, Loyal, Thorough, precise, considers all information, talented and gifted, orderly, scheduled, purposeful, disciplined, philosophical, rich and sensitive nature, faithful friend, knows own limitations, Creativity, crafty, dependable, does not forget obligations/promises, polished in manners, dress & style, cultured, sees problem and finds creative solutions, methodical" },
+          { label: "Limitations", value: "Self-righteous, perfectionist, worries, moody, critical" },
+          { label: "Focus on", value: "Facts, tasks, and quality" },
+          { label: "Adept at", value: "Applying facts and experience" },
+          { label: "Abilities to", value: "Plan and problem solve" },
+          { label: "Communication\nTells=Direct, Asks=Indirect", value: "Indirect, Detailed, Factual, Orderly messages, Prefers written" },
+          { label: "Likes environment to be", value: "Organized, Functional, Practical" },
+          { label: "Pluses about any job", value: "The process, Developing systems" },
+          { label: "Decisions are", value: "Calculated- Head, weighs and measures circumstances carefully" },
+          { label: "Motto", value: '"A place for everything in its place"-- "Make a plan and work the plan"-- "Do it right the first time"-- "Those of you who think you know everything really annoy those of us who do!"' },
+          { label: "Fears", value: "Making a mistake, compromising quality of standards, being misunderstood or dismissed emotionally, people that arrive late, forgetfulness, unpredictability" },
+          { label: "Stressors", value: "Change, chaos, sloppy work- man ship, irresponsibility" },
+          { label: "When stressed", value: "Withdrawn, moody, cold, disengages, Goes back to facts and data for answers, indecisive, develops 'analysis paralysis', holds onto old ways and things" },
+          { label: "Incompatible people", value: "Disorganized, insincere, inauthentic, superficial" },
+          { label: "Compatible people", value: "Serious, dependable, intellectual, deep, appreciative people" },
+          { label: "Good at", value: "Taking responsibility, getting things done, figuring things out, details, punctuality, quality performances, caring for the needy, talk and writes specifically, structured and routined, remembers numbers, likes repeating, procedures, rules, neat, intelligent, practice skills until perfect, integrity is important" },
+          { label: "Negative", value: "sad, gloomy disposition, too idealistic, lives in past or future, perfectionist, touchy, too introspective, critical of self, dwells on offenses, hard to forgive, false humility, complains, negative, manipulative, touchy, loner, frustrated by vague, not comfortable w/ change, manages emotions very intense, easily stressed, sets too high standards" },
+          { label: "Why do we need you?", value: "You can organize and prioritize, high standard, perfectionist, detailed focus, passion" },
+          { label: "Why do I need others?", value: "To be more flexible, to think of new ideas, to 'chill' a bit more, to with w/ new information" },
+          { label: "Growth areas", value: "Widen vision, show more emotions, be more bendable." },
+        ],
+      },
+      peacekeeperGreen: {
+        title: "PEACEKEEPER (Green) - The Phlegmatic",
+        content: [
+          { label: "Temperament", value: "The Loyal Peacemaker" },
+          { label: "Main Scripture", value: "1 Cor. 9:27" },
+          { label: "Pine Tree/The analytic Hanna", value: '"Let\'s do it the easy way"' },
+          { label: "People say", value: "You are as stable as a mountain, we don't know what you think, not even a bomb can get you going, rather safe than sorry, what you see is what you get." },
+          { label: "Personality Type", value: "Peacekeeper, Steadiness, Personable, Witty humor, Tranquil, Mediator, Worrier, Pessimistic, Skeptic," },
+          { label: "Roles", value: "Diplomat" },
+          { label: "Motives", value: "Peace and Balance" },
+          { label: "Needs", value: "Acceptance, Respect, Independence, Time to think before you talk" },
+          { label: "Wants", value: "Stability, Contentment" },
+          { label: "Strengths", value: "Clarity, Listens, Diplomatic, Kind, Patient, Moderate, Adaptable, Peaceful, Tolerant, Balanced, not being easily annoyed by imperfections or flaws, not shaken by outward conditions, easy to get along with, dependable, pleasant, enjoyable, good listener, precise in talking and writing, competitive, completes tasks" },
+          { label: "Limitations", value: "Indecisive, Unmotivated, Overly sensitive, Stubborn, Unproductive, Overwhelmed, Submissive, Uninvolved, quiet, shy, keeps emotions hidden, Indifferent at times" },
+          { label: "Focus on", value: "Facts of Relationship. Practicalness, analytic, one thing at a time" },
+          { label: "Adept at", value: "Meeting daily concerns of people" },
+          { label: "Abilities to", value: "Collaborate and Mediate" },
+          { label: "Communication\nTells= Direct\nAsks= Indirect", value: "Indirect, Empathetic, With clarity, Calm and collected, Hesitant to speak up" },
+          { label: "Likes environment to be\nIdeal circumstances", value: "Friendly, Casual, Open door policy, likes to work alone, challenging, harmonized, peac and quiet\nOpportunity to work w/ detail, challenges, people making decisions on his behalf" },
+          { label: "Pluses about any job", value: "The Involvement, Relationships" },
+          { label: "Decisions are", value: "Consultative- Heart" },
+          { label: "Motto", value: '"Peace at any price"-- "Don\'t make waves"' },
+          { label: "Fears", value: "Major life change, major personal problems, overwhelming life circumstances being handled alone" },
+          { label: "Stressors", value: "Fast pace, disharmony, conflict, instability, people that puts pressure on you or expects too much." },
+          { label: "When stressed", value: "Avoids-Isolates, 'veges-out', denies, is lazy, beomces a couch potato, distraction from problem- TV, Books, Sleep, Manual activities, knitting, crafts, quits when things get rough" },
+          { label: "Incompatible People", value: "Controlling, pushy, loud, domineering, demanding" },
+          { label: "Compatible people", value: "Collaborative and supportive, Helmpates in decisions, respect them for who they are, not what they do." },
+          { label: "Good at", value: "Keeping the peace, showing compassion, staying calm, listening, finding balance, friendships," },
+          { label: "Negatives", value: "Slow by nature, an opportunist, indifferent by others, discourages people around, takes life too easy, selfish, too cautious, no goals or vision, doesn't change easily, indecisive, unconcerned for others, lacks self-motivation, avoids responsibility, compromising, timid, reluctant (II Tim. 1:7), duty-bound, boring, plain, very private, impatient, easily offended, extremely critical/self, passive, hides weakness" },
+          { label: "Why do we need you?", value: "Excellent cooperation, calming influence on others, peace keeper" },
+          { label: "Why do I need others?", value: "To see the bigger picture, to get ideas, to work with others better, to give more structure" },
+          { label: "Growth areas?", value: "Working faster, own problem solutions, consider the needs of others, show more emotions, objective setting, motivation" },
+        ],
+      },
+      producerRed: {
+        title: "PRODUCER (Red) - The Choleric",
+        content: [
+          { label: "Temperament", value: "The Active, Driven, Practical One" },
+          { label: "Main scripture", value: "EPH. 5:8" },
+          { label: "Rose Tree/ The Strategic Esther", value: '"Let\'s Do it my Way"' },
+          { label: "Personality Type", value: "Producer. Dominance. Extrovert by nature. Understands definite purpose in life (Jn 17:3), Direct, Dynamic, Decisive, Goal setter, Adventuresome, Calculated risk taker." },
+          { label: "Roles", value: "Leader. Visionary (1 Cor. 3:11-15)" },
+          { label: "Motives", value: "Power and results. Strong stamina and drive" },
+          { label: "Needs", value: "Approval, Respect, to be right" },
+          { label: "Wants", value: "Control, Leadership" },
+          { label: "Strengths", value: "Decisive, Doer, Confident, Competent Driven, Vision, Influential, Confident, Bold, Strong will power, clear, strong in emergencies, keen perception, grasps situation quickly, not daunted by circumstances, organizes well," },
+          { label: "Limitations", value: "Domineering, Selfish, Insensitive, Manipulative, Arrogant, Nosy, Not always on time, Easily bored, Egocentric, Impatient, Sarcastic" },
+          { label: "Focus On", value: "Possibilities and Tasks. Sees what needs to be done & does it (Acts 20:24)" },
+          { label: "Adept at", value: "Developing concepts. productive, assertive" },
+          { label: "Abilities to", value: "Accomplish and Achieve, stir others into action, take chances," },
+          { label: "Communication\nTells= Direct\nAsks= Indirect", value: "Direct, Authoritative, Logical, Bottom Line, Unemotional" },
+          { label: "Likes environment to be\nIdeal circumstances", value: "Efficient, Effective, Productive, Dangerous, Constructive, continual stimulation, no supervision/control, opportunities, acknowledgement, pressure and fast tempo" },
+          { label: "Pluses about any job", value: "Accomplishing the task, Winning, Self-determination (Eph. 1:17)" },
+          { label: "Decisions are", value: "Decisive-Head" },
+          { label: "Motto", value: "Time is money-- I Want it Done Right the First Time" },
+          { label: "Fears", value: "Loss of control, Being seen as wrong or incompetent, Loss of respect" },
+          { label: "Stressors", value: "Incompetent people, Out of control situations, Not producing enough, when things are not done as you said, disloyal people" },
+          { label: "When stressed", value: "Verbal aggressive, Domineering, Manipulative, Assertive, Blunt, Pushes harder for production, take more control, eliminates perpetrator" },
+          { label: "Incompatible people", value: "Lazy, Non-productive, Ineffective, Incompetents, Weak" },
+          { label: "Compatible people", value: "Other performers, Make it happen people, Self-assured, Competent, submissive colleagues" },
+          { label: "Good at", value: "Vision, Strategies, Making things happen, Getting things done, being future oriented, creative talking and writing, simultaneous attention on projects, having an enthusiasm and energy where others value, accepting change," },
+          { label: "Negative", value: "Born with rebellious spirit, Tactless (Eph 4:2-3), Bossy, Domineering, Demanding, Insensitive to others feelings and needs, Uses others for own purposes, intolerance of mistakes, wants to be IN CHARGE and unable to follow well (Ps 43: 3-4), Has to make all the decisions, Hars and rash, unsympathetic (Eph 4:29), too independent, hates emotionalism, revengeful (Heb 12:15), end justifies the mean, self-confident b/c he always achieves his plan, stubborn & unyielding, has hard time admitting he's wrong, hot-tempered, narrow in viewpoint, proud, pushy, outspoken, forceful, impatient" },
+          { label: "Why do we need you?", value: "Can function under pressure, fast actions, achieve more than the ordinary person, natural leader" },
+          { label: "Why do I need others?", value: "To focus on details, to provide structure, to sell their ideas to others, finish tasks, learn to delegate" },
+          { label: "Growth areas", value: "Be more flexible, self-discipline, show more emotion, communicate thoughts, be more tactful." },
+        ],
+      },
+      promoterYellow: {
+        title: "PROMOTER (Yellow) - The Sanguine",
+        content: [
+          { label: "Temperament", value: "The Actor/Talker/The Enjoyer" },
+          { label: "Main Scripture", value: "1 Cor. 9:27" },
+          { label: "The Palm Tree- The passionate Maria", value: '"Let\'s do it the fun way!"' },
+          { label: "What people say", value: "You are the soul of the party! Nothing gets you down, can you please think before you do?" },
+          { label: "Personality Type", value: "Promoter, Influencer, Extrovert by nature, Optimistic" },
+          { label: "Roles", value: "Motivator" },
+          { label: "Motives", value: "Have fun, encourage people" },
+          { label: "Needs", value: "Attention, Applause, Recognitions" },
+          { label: "Wants", value: "Relationships, Freedom" },
+          { label: "Strengths", value: "Brainstorms, Encourages, Enthusiastic, Charismatic, Creative, Articulate, Direct but naive, bubbly, joyful, funny and entertaining, chatty, very animated, lively, contagious and refreshing, sociable, changes easily and quickly, high emotions from up to down, tender, sympathetic, keeps the attention of the crown, makes friends easily, vivacious and expressive, loud fabulous laugh, cute, simple-hearted, excellent speaker, easily elated, can sense when the atmosphere changes, emotional in talking and writing, likes personal experiences, shows love easily, shows empathy, diplomatic, very loyal" },
+          { label: "Limitations", value: "Disorganized, Careless, Impulsive, Unrealistic, Obnoxious" },
+          { label: "Focus on", value: "Possibilities and relationships" },
+          { label: "Adept at", value: "Understanding the aspirations of people" },
+          { label: "Abilities to", value: "Recruit and enlist, party plan" },
+          { label: "Communication\nTells= Direct, Asks= Indirect", value: "Direct, Energetic, Enthusiastic, Tells stories, Loud, Interrupts" },
+          { label: "Likes environment to be\nIdeal circumstances", value: "Stimulating, Fast-paced, Congenial, varied\ncontinues contact w/ groups, feels safe when emotions can be shown, personal examples are used, colleagues accept, being acknowledged" },
+          { label: "Pluses about any job", value: "The start, the challenge, working in a group" },
+          { label: "Decisions are", value: "Spontaneous- from the Heart, Daring" },
+          { label: "Motto", value: '"Live, Laugh, Love"-- "Close Enough"' },
+          { label: "Fears", value: "Being bored, left out, unpopular, structure, criticism" },
+          { label: "Stressors", value: "Rigid situations, not enough stimulation, too structured and too serious" },
+          { label: "When stressed", value: "Talks loud, obnoxious, impulsive, does shocking attention-getting things, shopping, having fun, uses defense mechanisms, blames others, gives up, keeps distance" },
+          { label: "Incompatible people", value: "Uptight, non-flexible, serious, boring and narrow-minded, the melancholic," },
+          { label: "Compatible people", value: "Possibilities oriented, people oriented, having heart, enjoying life" },
+          { label: "Good at", value: "Recruiting, enlisting, innovation, relationships, selling, encouraging others, inspiring others" },
+          { label: "Negative", value: "inconsistent, whimsical, unreliable, forgets promises and obligations, unstable, undisciplined, self-indulgent, exaggerates, needs discipline to live in the present, easily distracted-restless, shallow, craves enjoyment, doesn't translate experience into action, easily molded by environment, feelings based on circumstance, usually late/forgetful, interrupts, unpredictable, messy/too busy, easily emotional, avoids conflict, always tries to keep others happy in spite of self, overreacts" },
+          { label: "Why do we need you?", value: "Your creativity and hospitality, optimism and positive attitude" },
+          { label: "Why do I need others?", value: "Initiative and innovative, to concentrate more on the task, talk less, to be organized, to be more punctual" },
+          { label: "Growth areas", value: "Be less sensitive, focus more on the task, be more self-controlled, prioritize" },
+        ],
+      },
+      personalitySummary: {
+        title: "Personality Type Summary",
+        table: [
+          { header: "TYPE in the work environment", promoter: "PROMOTER Yellow", planner: "PLANNER Blue", producer: "PRODUCER Red", peacekeeper: "PEACEKEEPER Green" },
+          { header: "ROLES:", promoter: "Motivator", planner: "Problem-solver", producer: "Leader", peacekeeper: "Diplomat" },
+          { header: "MOTIVES:", promoter: "Fun and encouragement of", planner: "Belonging and contributing", producer: "Power and results", peacekeeper: "Peace and balance" },
+          { header: "NEEDS:", promoter: "Attention Applause Recognition", planner: "Appreciation Acceptance Order", producer: "Approval Respect To be right", peacekeeper: "Acceptance Respect Independence" },
+          { header: "WANTS:", promoter: "Relationships Freedom", planner: "Accuracy Security", producer: "Control Leadership", peacekeeper: "Stability Contentment" },
+          { header: "STRENGTHS:", promoter: "Brainstormer Encourager Enthusiastic Charismatic Creative Articulate Optimistic", planner: "Integrity Organizer Sincere Reliable Practical Thoughtful Loyal", producer: "Decisive Doer Confident Competent Driven Vision Influential", peacekeeper: "Clarity Listener Diplomatic Kind Patient Moderate Adaptable" },
+          { label: "LIMITATIONS:", promoter: "Disorganized Cardless Impulsive Unrealistic Obnoxious", planner: "Self-righteous Perfectionist Worrier Moody Critical", producer: "Domineering Selfish Insensitive Manipulative Arrogant", peacekeeper: "Indecisive Unmotivated Methodical Stubborn Overwhelmed" },
+          { header: "FOCUS ON:", promoter: "Possibilities and relationships", planner: "Facts, tasks and quality", producer: "Possibilities and tasks", peacekeeper: "Facts and relationships" },
+          { header: "ADEPT AT:", promoter: "Understanding the aspirations of people", planner: "Applying facts and experience", producer: "Developing concepts", peacekeeper: "Meeting daily concerns of people" },
+          { header: "ABILITIES TO:", promoter: "Recruit and enlist", planner: "Plan and problem-solve", producer: "Accomplish and achieve", peacekeeper: "Collaborate and mediate" },
+          { header: "COMMUNICATION:\nTells = Direct\nAsks = Indirect", promoter: "Direct Energetic Enthusiastic Loud Interrupts", planner: "Indirect Detailed Factual Orderly messages Prefers written", producer: "Direct Authoritative Logical Bottom line Unemotional", peacekeeper: "Indirect Empathetic With clarity Calm and collected Hesitant to speak up" },
+          { header: "LIKES OFFICE TO BE:", promoter: "Stimulating Fast paced Congenial", planner: "Organized Functional Business like", producer: "Efficient Effective Productive", peacekeeper: "Friendly Casual Open door policy" },
+          { header: "PLUSES ABOUT THE JOB:", promoter: "The start Challenge", planner: "The process Developing systems", producer: "The completion Winning", peacekeeper: "The involvement Relationships" },
+          { header: "DECISIONS ARE:", promoter: "Spontaneous Heart", planner: "Calculated Head", producer: "Decisive Head", peacekeeper: "Consultative Heart" },
+          { header: "NAMES OTHERS USE FOR THEM:", promoter: "Scatteriffic Space Cadet Air Head Adorable Flake", planner: "Anal Retentive Gloom and Doom Nit-picky Negative", producer: "Ruthless Attila the Hun Hitler Verbal Machine Gun", peacekeeper: "Ignored Mute Softie Bleeding Hearts" },
+        ],
+      },
+    };
+
+    function Question({ question, rankings, setRankings }) {
+      const handleRankChange = (color, value) => {
+        const newRankings = { ...rankings };
+        const currentQuestion = newRankings[question.id] || {};
+
+        const colorWithValue = Object.keys(currentQuestion).find(
+          key => currentQuestion[key] === parseInt(value) && key !== color
+        );
+
+        if (colorWithValue) {
+          delete currentQuestion[colorWithValue];
+        }
+
+        currentQuestion[color] = parseInt(value);
+        newRankings[question.id] = currentQuestion;
+        setRankings(newRankings);
+      };
+
+      return (
+        <div className="mb-6 p-4 border rounded-lg bg-white shadow-sm">
+          <h3 className="text-lg font-semibold text-primary mb-2">Question {question.id}: {question.prompt}</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {Object.entries(question.options).map(([color, text]) => (
+              <div key={color} className="flex items-center space-x-2">
+                <label className="flex-1 text-accent">{text}</label>
+                <select
+                  className="border rounded p-1 bg-white text-accent focus:ring-2 focus:ring-primary"
+                  value={rankings[question.id]?.[color] || ""}
+                  onChange={(e) => handleRankChange(color, e.target.value)}
+                >
+                  <option value="" disabled>Select</option>
+                  {[1, 2, 3, 4].map(num => (
+                    <option key={num} value={num}>
+                      {num}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    function Results({ rankings, userName }) {
+      console.log("Rendering Results, rankings:", rankings);
+      const totals = { yellow: 0, green: 0, red: 0, blue: 0 };
+      Object.values(rankings).forEach(question => {
+        Object.entries(question).forEach(([color, rank]) => {
+          totals[color] += rank;
+        });
+      });
+
+      const sortedResults = Object.entries(totals)
+        .map(([color, score]) => ({
+          color,
+          score,
+          type: personalityTypes[color].type,
+          explanation: personalityTypes[color].explanation,
+        }))
+        .sort((a, b) => b.score - a.score);
+
+      const handleDownloadPDF = (userName) => {
+        console.log("Download button clicked, generating PDF...");
+        try {
+          const doc = new jsPDF();
+          let yPosition = 20; // Initial vertical position
+
+          const addNewPage = () => {
+            doc.addPage();
+            yPosition = 20; // Reset vertical position for the new page
+          };
+
+          const checkPageHeight = (additionalHeight) => {
+            if (yPosition + additionalHeight > 270) { // Check if content exceeds page height
+              addNewPage();
+            }
+          };
+
+          // Add user's name
+          doc.setFontSize(14);
+          doc.setTextColor(30, 58, 138);
+          doc.text(`Results for: ${userName || "Anonymous"}`, 20, yPosition);
+          yPosition += 10;
+
+          // Add title
+          doc.setFontSize(16);
+          doc.text("Color Personality Test Results", 20, yPosition);
+          yPosition += 10;
+
+          // Add score totals
+          doc.setFontSize(12);
+          doc.setTextColor(107, 114, 128);
+          doc.text("Score Totals (Higher Scores Indicate Stronger Alignment)", 20, yPosition);
+          yPosition += 8;
+
+          sortedResults.forEach(({ color, score }) => {
+            checkPageHeight(6);
+            doc.setFontSize(10);
+            doc.text(`${color.charAt(0).toUpperCase() + color.slice(1)}: ${score} points`, 20, yPosition);
+            yPosition += 6;
+          });
+
+          // Add personality types and explanations
+          addNewPage(); // Start a new page for personality types
+          doc.setFontSize(12);
+          doc.text("Personality Types and Explanations", 20, yPosition);
+          yPosition += 8;
+
+          sortedResults.forEach(({ color, type, explanation }) => {
+            checkPageHeight(10);
+            doc.setFontSize(11);
+            doc.setTextColor(0, 0, 0);
+            doc.text(`${color.charAt(0).toUpperCase()} - ${type}`, 20, yPosition);
+            yPosition += 6;
+
+            doc.setFontSize(9);
+            const cleanExplanation = explanation.replace(/<strong>|<\/strong>/g, '');
+            const splitText = doc.splitTextToSize(cleanExplanation.trim(), 170);
+            splitText.forEach(line => {
+              checkPageHeight(5);
+              doc.text(line, 20, yPosition);
+              yPosition += 5;
+            });
+            yPosition += 5;
+          });
+
+          // Add additional content sections
+          const sections = [
+            additionalContent.plannerBlue,
+            additionalContent.peacekeeperGreen,
+            additionalContent.producerRed,
+            additionalContent.promoterYellow,
+          ];
+
+          sections.forEach(section => {
+            addNewPage(); // Start a new page for each section
+            doc.setFontSize(14);
+            doc.setTextColor(30, 58, 138);
+            doc.text(section.title, 20, yPosition);
+            yPosition += 10;
+
+            doc.setFontSize(9);
+            doc.setTextColor(0, 0, 0);
+            
+            // Define column positions for the section tables
+            const labelX = 20;
+            const valueX = 80;
+            const tableWidth = 160;
+
+            section.content.forEach(item => {
+              const labelLines = doc.splitTextToSize(item.label, 50);
+              const valueLines = doc.splitTextToSize(item.value, 110);
+              const maxLines = Math.max(labelLines.length, valueLines.length);
+              
+              const startY = yPosition;
+
+              for (let i = 0; i < maxLines; i++) {
+                checkPageHeight(5);
+                const labelText = labelLines[i] || "";
+                const valueText = valueLines[i] || "";
+                doc.text(labelText, labelX, yPosition);
+                doc.text(valueText, valueX, yPosition);
+                yPosition += 5;
+              }
+
+              // Draw grid lines for each row
+              doc.setDrawColor(128, 128, 128);
+              doc.setLineWidth(0.1);
+              doc.line(labelX, startY - 2, labelX + tableWidth, startY - 2);
+              doc.line(labelX, yPosition - 2, labelX + tableWidth, yPosition - 2);
+              
+              // Draw vertical lines
+              doc.line(labelX, startY - 2, labelX, yPosition - 2);
+              doc.line(valueX - 5, startY - 2, valueX - 5, yPosition - 2);
+              doc.line(labelX + tableWidth, startY - 2, labelX + tableWidth, yPosition - 2);
+
+              yPosition += 2;
+            });
+          });
+
+          // Add personality summary table
+          addNewPage(); // Start a new page for the summary
+          doc.setFontSize(14);
+          doc.setTextColor(30, 58, 138);
+          doc.text(additionalContent.personalitySummary.title, 20, yPosition);
+          yPosition += 10;
+
+          doc.setFontSize(9);
+          doc.setTextColor(0, 0, 0);
+          
+          // Define table columns and their positions
+          const columnX = [20, 55, 95, 135, 175];
+          const columnWidth = 35;
+
+          additionalContent.personalitySummary.table.forEach(row => {
+            const headerLines = doc.splitTextToSize(row.header, 30);
+            const promoterLines = doc.splitTextToSize(row.promoter, 35);
+            const plannerLines = doc.splitTextToSize(row.planner, 35);
+            const producerLines = doc.splitTextToSize(row.producer, 35);
+            const peacekeeperLines = doc.splitTextToSize(row.peacekeeper, 35);
+            const maxLines = Math.max(headerLines.length, promoterLines.length, plannerLines.length, producerLines.length, peacekeeperLines.length);
+            
+            const startY = yPosition;
+
+            for (let i = 0; i < maxLines; i++) {
+              checkPageHeight(5);
+              doc.text(headerLines[i] || "", columnX[0], yPosition);
+              doc.text(promoterLines[i] || "", columnX[1], yPosition);
+              doc.text(plannerLines[i] || "", columnX[2], yPosition);
+              doc.text(producerLines[i] || "", columnX[3], yPosition);
+              doc.text(peacekeeperLines[i] || "", columnX[4], yPosition);
+              yPosition += 5;
+            }
+
+            // Draw horizontal lines
+            doc.setDrawColor(128, 128, 128);
+            doc.setLineWidth(0.1);
+            doc.line(columnX[0], startY - 2, columnX[4] + columnWidth, startY - 2);
+            doc.line(columnX[0], yPosition - 2, columnX[4] + columnWidth, yPosition - 2);
+
+            // Draw vertical lines for each column
+            for (let x of columnX) {
+              doc.line(x, startY - 2, x, yPosition - 2);
+            }
+            // Draw the last vertical line
+            doc.line(columnX[4] + columnWidth, startY - 2, columnX[4] + columnWidth, yPosition - 2);
+
+            yPosition += 2;
+          });
+
+          // Save the PDF
+          doc.save(`personality_test_results_${userName || "anonymous"}.pdf`);
+          console.log("PDF generated and download initiated.");
+        } catch (error) {
+          console.error("Error generating PDF:", error);
+        }
+      };
+
+      return (
+        <div className="mt-8 p-6 border rounded-lg bg-white shadow-sm">
+          <h2 className="text-2xl font-bold text-primary mb-4">Your Personality Results</h2>
+          <h3 className="text-xl font-semibold text-accent mb-4">Score Totals (Higher Scores Indicate Stronger Alignment)</h3>
+          <ul className="space-y-2 mb-6">
+            {sortedResults.map(({ color, score }) => (
+              <li key={color} className="flex items-center space-x-2">
+                <span className={`w-4 h-4 rounded-full bg-${color}-500`}></span>
+                <span className="capitalize text-accent font-medium">{color}: {score} points</span>
+              </li>
+            ))}
+          </ul>
+          <h3 className="text-xl font-semibold text-accent mb-4">Personality Types and Explanations</h3>
+          {sortedResults.map(({ color, type, explanation }) => (
+            <div key={color} className="mb-6 p-4 bg-secondary rounded-lg" dangerouslySetInnerHTML={{ __html: explanation }} />
+          ))}
+          <button
+            onClick={() => handleDownloadPDF(userName)}
+            className="mt-4 px-4 py-2 bg-primary text-white rounded hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            Download Results as PDF
+          </button>
+        </div>
+      );
+    }
+
+    function App() {
+      console.log("App rendering...");
+      const [page, setPage] = useState(1);
+      const [rankings, setRankings] = useState({});
+      const [error, setError] = useState(null);
+      const [userName, setUserName] = useState("");
+
+      const allQuestionsAnswered = Object.keys(rankings).length === questions.length &&
+        questions.every(q => Object.keys(rankings[q.id] || {}).length === 4);
+      console.log("allQuestionsAnswered:", allQuestionsAnswered, "rankings:", rankings);
+
+      useEffect(() => {
+        console.log("App mounted, rankings:", rankings);
+      }, [rankings]);
+
+      if (error) {
+        return (
+          <div className="min-h-screen flex items-center justify-center p-4">
+            <div className="max-w-3xl w-full bg-white shadow-lg rounded-lg p-6 text-red-500">
+              <h1>Error: {error}</h1>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center p-4">
+          <div className="max-w-4xl w-full content-container shadow-lg rounded-lg p-8">
+            {page === 1 && (
+              <div className="text-center">
+                <h1 className="text-5xl font-bold mb-6 swirl-text">Color Personality Test</h1>
+                <p className="text-accent mb-6">Take this test to discover your personality type!</p>
+                <button
+                  onClick={() => setPage(2)}
+                  className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-primary transition duration-200"
+                >
+                  Start
+                </button>
+              </div>
+            )}
+            {page === 2 && (
+              <>
+                <div className="mb-8 p-4 border rounded-lg bg-white shadow-sm">
+                  <h2 className="text-xl font-semibold text-primary mb-2">Enter Your Name</h2>
+                  <input
+                    type="text"
+                    value={userName}
+                    onChange={(e) => setUserName(e.target.value)}
+                    placeholder="Enter your name"
+                    className="w-full p-2 border rounded mb-4 text-accent focus:ring-2 focus:ring-primary"
+                  />
+                  <p className="text-accent">Please enter your name to personalize your results. If left blank, "Anonymous" will be used.</p>
+                </div>
+                <div className="mb-8">
+                  <h2 className="text-xl font-semibold text-primary mb-2">Instructions</h2>
+                  <p className="text-accent">
+                    For each of the questions below, rank the four options from 1 to 4 based on how well they describe you:
+                    <ul className="list-disc ml-6 mt-2">
+                      <li><strong>4</strong>: Most like you</li>
+                      <li><strong>3</strong>: Next most like you</li>
+                      <li><strong>2</strong>: Next most like you</li>
+                      <li><strong>1</strong>: Least like you</li>
+                    </ul>
+                    Each number (1, 2, 3, 4) can only be used once per question. After completing all questions, your results will show your personality type scores (Yellow, Green, Red, Blue) in ranked order, along with their corresponding personality types and detailed explanations.
+                  </p>
+                </div>
+                <div className="mb-8 p-4 bg-secondary rounded-lg">
+                  <h2 className="text-xl font-semibold text-primary mb-2">Example</h2>
+                  <p className="text-accent mb-2">For the question "I am:", you might rank the options as follows:</p>
+                  <p className="text-accent">
+                    DRAMATIC: <span className="font-bold text-yellow-500">3</span>, 
+                    PRECISE: <span className="font-bold text-green-500">1</span>, 
+                    POWERFUL: <span className="font-bold text-red-500">4</span>, 
+                    ACCOMMODATING: <span className="font-bold text-blue-500">2</span>
+                  </p>
+                </div>
+                {questions.map(question => (
+                  <Question
+                    key={question.id}
+                    question={question}
+                    rankings={rankings}
+                    setRankings={setRankings}
+                  />
+                ))}
+                {allQuestionsAnswered && (
+                  <div className="text-center mt-8">
+                    <button
+                      onClick={() => setPage(3)}
+                      className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-primary transition duration-200"
+                    >
+                      Submit
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+            {page === 3 && (
+              <ErrorBoundary>
+                <Results rankings={rankings} userName={userName} />
+              </ErrorBoundary>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    try {
+      console.log("Attempting to render React app...");
+      const rootElement = document.getElementById('root');
+      if (!rootElement) {
+        console.error("Root element not found!");
+        document.body.innerHTML = '<div class="text-red-500 p-4 text-center">Error: Root element not found. Please check the HTML structure.</div>';
+      } else {
+        const root = ReactDOM.createRoot(rootElement);
+        root.render(
+          <ErrorBoundary>
+            <App />
+          </ErrorBoundary>
+        );
+        console.log("React app rendered successfully");
+      }
+    } catch (e) {
+      console.error("Error rendering React app:", e);
+      document.body.innerHTML = '<div class="text-red-500 p-4 text-center">Error rendering app: ' + e.message + '. Please check the console (F12) for details.</div>';
+    }
+  </script>
 </body>
 </html>
