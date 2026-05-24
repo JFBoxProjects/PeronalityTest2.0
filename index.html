@@ -88,13 +88,33 @@
     .opts-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
     @media(max-width:580px){ .opts-grid{grid-template-columns:1fr;} }
 
-    .opt-card { background:var(--surface); border:1.5px solid var(--border); border-radius:16px; padding:1.2rem 1.3rem; transition:border-color .18s,background .18s; }
+    .opt-card { background:var(--surface); border:1.5px solid var(--border); border-radius:16px; padding:1.2rem 1.3rem; transition:border-color .22s,background .22s,box-shadow .22s; cursor:default; }
+    .opt-card:hover { border-color:rgba(255,255,255,0.18); box-shadow:0 0 0 3px rgba(255,255,255,0.04), 0 4px 20px rgba(0,0,0,0.25); }
     .opt-card.ranked { }
-    .opt-head { display:flex; align-items:center; gap:7px; margin-bottom:.7rem; }
+    .opt-head { display:flex; align-items:center; gap:7px; margin-bottom:.35rem; }
     .opt-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
     .opt-clr-lbl { font-size:.62rem; text-transform:uppercase; letter-spacing:.1em; color:var(--sub); }
     .opt-rank-badge { margin-left:auto; width:21px; height:21px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Syne',sans-serif; font-size:.72rem; font-weight:700; color:#0d0d1a; animation:popIn .25s ease; }
-    .opt-text { font-size:1rem; font-weight:500; margin-bottom:.9rem; line-height:1.4; }
+    .opt-text { font-size:1rem; font-weight:500; margin-bottom:1.1rem; margin-top:.15rem; line-height:1.4; }
+
+    /* ── Instructions page ───────────────────────────── */
+    .page-instructions { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:2rem; }
+    .instr-card { background:var(--surface); border:1px solid var(--border); border-radius:24px; padding:2.8rem; max-width:580px; width:100%; animation:scaleIn .4s ease both; }
+    .instr-card h2 { font-size:1.9rem; font-weight:800; margin-bottom:.35rem; }
+    .instr-card > p { color:var(--sub); font-size:.92rem; margin-bottom:1.8rem; line-height:1.55; }
+    .instr-ranks { display:flex; flex-direction:column; gap:.55rem; margin-bottom:1.6rem; }
+    .instr-rank-row { display:flex; align-items:center; gap:.9rem; }
+    .instr-rank-num { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Syne',sans-serif; font-weight:700; font-size:.85rem; flex-shrink:0; }
+    .instr-rank-desc { font-size:.88rem; line-height:1.4; }
+    .instr-rank-desc strong { color:var(--text); }
+    .instr-example { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:1.2rem 1.4rem; margin-bottom:1.8rem; }
+    .instr-example-label { font-size:.65rem; letter-spacing:.12em; text-transform:uppercase; color:var(--sub); margin-bottom:.75rem; }
+    .instr-example-prompt { font-size:.82rem; color:var(--sub); margin-bottom:.9rem; }
+    .instr-example-grid { display:grid; grid-template-columns:1fr 1fr; gap:.6rem; }
+    .instr-ex-item { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:.7rem .9rem; }
+    .instr-ex-word { font-size:.88rem; font-weight:600; color:var(--text); margin-bottom:.4rem; }
+    .instr-ex-badge { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; font-family:'Syne',sans-serif; font-size:.75rem; font-weight:700; color:#0d0d1a; }
+    .instr-note { font-size:.78rem; color:var(--sub); line-height:1.55; margin-bottom:1.8rem; padding:.7rem .9rem; border-left:2px solid var(--border); }
     .rank-row { display:flex; gap:5px; }
     .rank-btn { width:34px; height:34px; border-radius:50%; border:1.5px solid var(--border); background:transparent; color:var(--sub); font-family:'Syne',sans-serif; font-size:.82rem; font-weight:700; cursor:pointer; transition:all .15s; display:flex; align-items:center; justify-content:center; }
     .rank-btn:hover:not(.on) { border-color:rgba(255,255,255,0.24); color:var(--text); }
@@ -975,6 +995,72 @@ function ResultsPage({ rankings, userName, onRetake }) {
   );
 }
 
+// ─────────────── Instructions Page ────────────────────────────────────────
+function InstructionsPage({ onStart }) {
+  const exampleItems = [
+    { word:'Dramatic',      rank:3, bg:'#8B5CF6', tc:'#fff' },  // purple
+    { word:'Precise',       rank:1, bg:'#64748B', tc:'#fff' },  // slate
+    { word:'Powerful',      rank:4, bg:'#EC4899', tc:'#fff' },  // pink
+    { word:'Accommodating', rank:2, bg:'#06B6D4', tc:'#fff' },  // cyan
+  ];
+  const rankMeta = [
+    { n:4, label:'Most like you'          },
+    { n:3, label:'Next most like you'     },
+    { n:2, label:'Also somewhat like you' },
+    { n:1, label:'Least like you'         },
+  ];
+
+  return (
+    <div className="page-instructions">
+      <div className="instr-card">
+        <div className="color-bar-row">
+          {Object.values(CM).map(m=><div key={m.label} style={{background:m.hex}}/>)}
+        </div>
+
+        <h2>How to take the test</h2>
+        <p>You'll see 20 questions, each with <strong style={{color:'var(--text)'}}>4 trait words</strong>. Your job is to rank all four from 1 to 4 based on how well each one describes you — every number must be used exactly once per question.</p>
+
+        {/* Rank scale */}
+        <div className="instr-ranks">
+          {rankMeta.map(({n,label})=>(
+            <div key={n} className="instr-rank-row">
+              <div className="instr-rank-num" style={{background:'var(--card)',color:'var(--text)',border:'1.5px solid var(--border)'}}>{n}</div>
+              <div className="instr-rank-desc">
+                <strong>= {label}</strong>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Example */}
+        <div className="instr-example">
+          <div className="instr-example-label">Example — "I am:"</div>
+          <div className="instr-example-prompt">A person might rank these four traits like this:</div>
+          <div className="instr-example-grid">
+            {exampleItems.map(({word,rank,bg,tc})=>(
+              <div key={word} className="instr-ex-item">
+                <div className="instr-ex-word">{word}</div>
+                <div className="instr-ex-badge" style={{background:bg,color:tc}}>{rank}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="instr-note">
+          ✦ There are no right or wrong answers. Choose what honestly reflects you, not what you wish you were. When you finish all 4 rankings for a question, it will auto-advance to the next one.
+        </div>
+
+        <button className="btn-white" style={{width:'100%',justifyContent:'center'}} onClick={onStart}>
+          Start Question 1
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─────────────── App Shell ─────────────────────────────────────────────────
 function App() {
   const [page, setPage]         = useState('welcome');
@@ -983,16 +1069,17 @@ function App() {
 
   return (
     <>
-      {page==='welcome'   && <WelcomePage onStart={()=>setPage('name')}/>}
-      {page==='name'      && <NamePage onContinue={n=>{ setUserName(n); setPage('questions'); }}/>}
-      {page==='questions' && (
+      {page==='welcome'      && <WelcomePage onStart={()=>setPage('name')}/>}
+      {page==='name'         && <NamePage onContinue={n=>{ setUserName(n); setPage('instructions'); }}/>}
+      {page==='instructions' && <InstructionsPage onStart={()=>setPage('questions')}/>}
+      {page==='questions'    && (
         <QuestionsPage
           rankings={rankings}
           setRankings={setRankings}
           onSubmit={()=>setPage('results')}
         />
       )}
-      {page==='results'   && (
+      {page==='results'      && (
         <ResultsPage
           rankings={rankings}
           userName={userName}
