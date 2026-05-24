@@ -666,8 +666,7 @@ function OptionCard({ color, text, rank, onSelect }) {
   return (
     <div className="opt-card" style={rank ? {borderColor:m.hex, background:m.dim} : {}}>
       <div className="opt-head">
-        <div className="opt-dot" style={{background:m.hex}}/>
-        <span className="opt-clr-lbl">{m.label}</span>
+        {/* Color label intentionally hidden — users rank by trait, not color */}
         {rank && (
           <div className="opt-rank-badge" style={{background:m.hex}}>{rank}</div>
         )}
@@ -686,6 +685,22 @@ function OptionCard({ color, text, rank, onSelect }) {
     </div>
   );
 }
+
+// ─────────────── Option order rotation per question ────────────────────────
+// Each question's four options appear in a different positional order so that
+// no single color is always top-left / top-right / etc. 8 distinct patterns,
+// cycling through all 20 questions (pattern index = (qId-1) % 8).
+const OPTION_ORDERS = [
+  ['yellow','blue','red','green'],   // Q1,  Q9,  Q17
+  ['red','green','yellow','blue'],   // Q2,  Q10, Q18
+  ['blue','red','green','yellow'],   // Q3,  Q11, Q19
+  ['green','yellow','blue','red'],   // Q4,  Q12, Q20
+  ['yellow','red','blue','green'],   // Q5,  Q13
+  ['blue','yellow','green','red'],   // Q6,  Q14
+  ['red','blue','yellow','green'],   // Q7,  Q15
+  ['green','red','yellow','blue'],   // Q8,  Q16
+];
+const getOptionOrder = (qId) => OPTION_ORDERS[(qId - 1) % OPTION_ORDERS.length];
 
 // ─────────────── Questions Page ────────────────────────────────────────────
 function QuestionsPage({ rankings, setRankings, onSubmit }) {
@@ -760,8 +775,8 @@ function QuestionsPage({ rankings, setRankings, onSubmit }) {
           <div className="q-eyebrow">Question {q.id} of {questions.length}</div>
           <h2 className="q-prompt">{q.prompt}</h2>
           <div className="opts-grid">
-            {Object.entries(q.options).map(([color,text])=>(
-              <OptionCard key={color} color={color} text={text} rank={qR[color]} onSelect={handleSelect}/>
+            {getOptionOrder(q.id).map(color=>(
+              <OptionCard key={color} color={color} text={q.options[color]} rank={qR[color]} onSelect={handleSelect}/>
             ))}
           </div>
         </div>
@@ -924,6 +939,28 @@ function ResultsPage({ rankings, userName, onRetake }) {
             </svg>
             Download Full PDF Report
           </button>
+          <br/>
+          <a
+            href="./Real_you_book-_Vickie_Barnes.pdf"
+            download="The_Real_You_by_Vickie_Barnes.pdf"
+            style={{
+              display:'inline-flex', alignItems:'center', gap:'10px',
+              padding:'14px 32px', background:'transparent',
+              color:'var(--sub)', border:'1px solid var(--border)',
+              borderRadius:'100px', fontFamily:"'Syne',sans-serif",
+              fontWeight:'600', fontSize:'1rem', cursor:'pointer',
+              textDecoration:'none', marginTop:'0.8rem',
+              transition:'all .2s',
+            }}
+            onMouseEnter={e=>{e.currentTarget.style.color='var(--text)';e.currentTarget.style.borderColor='rgba(255,255,255,.25)';}}
+            onMouseLeave={e=>{e.currentTarget.style.color='var(--sub)';e.currentTarget.style.borderColor='var(--border)';}}
+          >
+            <svg width="17" height="17" viewBox="0 0 17 17" fill="none">
+              <path d="M8.5 2v9M8.5 11L5 7.5M8.5 11L12 7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M3 14h11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            Download "The Real You" Book
+          </a>
           <br/>
           <button className="btn-retake" onClick={onRetake}>
             <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
