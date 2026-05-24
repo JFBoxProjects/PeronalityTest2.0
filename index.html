@@ -412,6 +412,9 @@ function generatePDF(name, sorted) {
   const LGRAY = [230,230,242];
 
   // ── COVER PAGE ──────────────────────────────────────────────────────────
+  const ML = 20;          // left margin (mm)
+  const MR = 20;          // right margin (mm)
+  const TW = pw - ML - MR; // full text width = pw-40
   fill(pC); doc.rect(0,0,pw,72,'F');
   fill(lighter(pC,50)); doc.rect(pw-55,0,55,72,'F');
   fill(darker(pC,20)); doc.rect(0,68,pw,4,'F');
@@ -419,24 +422,24 @@ function generatePDF(name, sorted) {
   // label
   doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
   tclr([...WHITE.map(v=>v*0.85)]); // slightly dimmer white
-  doc.text('PERSONALITY PROFILE',20,18);
+  doc.text('PERSONALITY PROFILE',ML,18);
 
   // big type name
   doc.setFont('helvetica','bold'); doc.setFontSize(34);
   tclr(WHITE);
-  doc.text(profiles[primary.color].type.toUpperCase(), 20, 44);
+  doc.text(profiles[primary.color].type.toUpperCase(), ML, 44);
 
   // tagline
   doc.setFont('helvetica','normal'); doc.setFontSize(9.5);
   tclr(WHITE);
-  doc.text(profiles[primary.color].tagline, 20, 56);
+  doc.text(profiles[primary.color].tagline, ML, 56);
 
   // name + date (right)
   doc.setFont('helvetica','bold'); doc.setFontSize(10);
   tclr(WHITE);
-  doc.text(displayName, pw-20, 25, {align:'right'});
+  doc.text(displayName, pw-MR, 25, {align:'right'});
   doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
-  doc.text(today, pw-20, 34, {align:'right'});
+  doc.text(today, pw-MR, 34, {align:'right'});
 
   // white body
   fill(WHITE); doc.rect(0,72,pw,ph-72,'F');
@@ -444,21 +447,21 @@ function generatePDF(name, sorted) {
   // score bars section
   let y = 88;
   doc.setFont('helvetica','bold'); doc.setFontSize(7); tclr([150,150,175]);
-  doc.text('PERSONALITY SCORE RESULTS', 20, y); y+=7;
+  doc.text('PERSONALITY SCORE RESULTS', ML, y); y+=7;
 
   const maxSc = 80;
   sorted.forEach(({color, score},i) => {
     const m = CM[color];
-    const barW = Math.round((score/maxSc)*(pw-52));
+    const barW = Math.round((score/maxSc)*TW);
     // labels
     doc.setFont('helvetica','bold'); doc.setFontSize(9); tclr(DARK);
-    doc.text(`${profiles[color].type}`, 20, y+4);
+    doc.text(`${profiles[color].type}`, ML, y+4);
     doc.setFont('helvetica','bold'); doc.setFontSize(9); tclr(m.rgb);
-    doc.text(`${score} pts`, pw-20, y+4, {align:'right'});
+    doc.text(`${score} pts`, pw-MR, y+4, {align:'right'});
     // track
-    fill(LGRAY); doc.roundedRect(20, y+7, pw-40, 5.5, 2.5, 2.5,'F');
+    fill(LGRAY); doc.roundedRect(ML, y+7, TW, 5.5, 2.5, 2.5,'F');
     // fill bar
-    fill(m.rgb); doc.roundedRect(20, y+7, barW, 5.5, 2.5, 2.5,'F');
+    fill(m.rgb); doc.roundedRect(ML, y+7, barW, 5.5, 2.5, 2.5,'F');
     y += 20;
   });
 
@@ -466,13 +469,15 @@ function generatePDF(name, sorted) {
 
   // primary description section
   doc.setFont('helvetica','bold'); doc.setFontSize(7); tclr([150,150,175]);
-  doc.text('YOUR PRIMARY PERSONALITY TYPE', 20, y); y+=8;
+  doc.text('YOUR PRIMARY PERSONALITY TYPE', ML, y); y+=8;
 
-  // accent bar
-  fill(pC); doc.rect(20,y,3,25,'F');
-  const descLines = wrap(profiles[primary.color].full, pw-58);
+  // accent bar + description — indent 8mm from margin, text stays within right margin
+  const descIndent = ML + 8;
+  const descW = pw - descIndent - MR;
+  fill(pC); doc.rect(ML,y,3,25,'F');
+  const descLines = wrap(profiles[primary.color].full, descW);
   doc.setFont('helvetica','normal'); doc.setFontSize(9); tclr([35,35,60]);
-  doc.text(descLines.slice(0,5), 28, y+5);
+  doc.text(descLines.slice(0,5), descIndent, y+5);
   y += 32;
 
   // trait boxes
@@ -483,28 +488,30 @@ function generatePDF(name, sorted) {
     {label:'Key Wants', val:profiles[primary.color].wants},
   ];
   doc.setFont('helvetica','bold'); doc.setFontSize(7); tclr([150,150,175]);
-  doc.text('KEY TRAITS', 20, y); y+=6;
+  doc.text('KEY TRAITS', ML, y); y+=6;
 
   traitData.forEach(({label,val},i) => {
     if (y > ph-28) { doc.addPage(); fill(WHITE); doc.rect(0,0,pw,ph,'F'); y=18; }
-    const vLines = wrap(val, pw-80);
+    const traitIndent = ML + 7;
+    const traitW = pw - traitIndent - MR;
+    const vLines = wrap(val, traitW);
     const bh = Math.max(13, vLines.length*4.2+7);
-    fill(i%2===0 ? [248,248,253] : WHITE); doc.rect(20,y,pw-40,bh,'F');
-    fill(pC); doc.rect(20,y,2.5,bh,'F');
+    fill(i%2===0 ? [248,248,253] : WHITE); doc.rect(ML,y,TW,bh,'F');
+    fill(pC); doc.rect(ML,y,2.5,bh,'F');
     doc.setFont('helvetica','bold'); doc.setFontSize(6.5); tclr([140,140,165]);
-    doc.text(label.toUpperCase(),27,y+5);
+    doc.text(label.toUpperCase(), traitIndent, y+5);
     doc.setFont('helvetica','normal'); doc.setFontSize(8.5); tclr([35,35,60]);
-    doc.text(vLines,27,y+10);
+    doc.text(vLines, traitIndent, y+10);
     y += bh+3;
   });
 
   HR(y+3); y+=11;
   // motto
   doc.setFont('helvetica','bold'); doc.setFontSize(7); tclr([150,150,175]);
-  doc.text('MOTTO', 20, y); y+=6;
+  doc.text('MOTTO', ML, y); y+=6;
   doc.setFont('helvetica','italic'); doc.setFontSize(10); tclr(pC);
-  const mottoLines = wrap(profiles[primary.color].motto, pw-40);
-  doc.text(mottoLines, 20, y);
+  const mottoLines = wrap(profiles[primary.color].motto, TW);
+  doc.text(mottoLines, ML, y);
 
   // ── PROFILE PAGES ──────────────────────────────────────────────────────
   sorted.forEach(({color, score}) => {
@@ -519,17 +526,22 @@ function generatePDF(name, sorted) {
     fill(darker(m.rgb,18)); doc.rect(0,38,pw,4,'F');
 
     doc.setFont('helvetica','bold'); doc.setFontSize(20); tclr(WHITE);
-    doc.text(prof.type.toUpperCase(), 20, 22);
+    doc.text(prof.type.toUpperCase(), ML, 22);
     doc.setFont('helvetica','normal'); doc.setFontSize(8.5); tclr(WHITE);
-    doc.text(sect.title, 20, 33);
+    doc.text(sect.title, ML, 33);
     // score badge
     doc.setFont('helvetica','bold'); doc.setFontSize(22); tclr(WHITE);
-    doc.text(String(score), pw-22, 24, {align:'right'});
+    doc.text(String(score), pw-MR, 24, {align:'right'});
     doc.setFont('helvetica','normal'); doc.setFontSize(6.5); tclr(WHITE);
-    doc.text('POINTS', pw-22, 32, {align:'right'});
+    doc.text('POINTS', pw-MR, 32, {align:'right'});
 
     fill(WHITE); doc.rect(0,42,pw,ph-42,'F');
     let cy = 54;
+
+    // Label column ends at x=70, value text starts at x=72, must end by pw-MR
+    const labelX = ML + 4;
+    const valX   = ML + 54;           // ~74mm — same visual position as before
+    const valW   = pw - valX - MR;    // text width respects right margin
 
     sect.rows.forEach((row,ri) => {
       if (cy > ph-18) {
@@ -538,14 +550,14 @@ function generatePDF(name, sorted) {
         fill(WHITE); doc.rect(0,6,pw,ph-6,'F');
         cy = 16;
       }
-      const valLines = wrap(row.v, pw-82);
+      const valLines = wrap(row.v, valW);
       const rowH = Math.max(9.5, valLines.length*4+5);
-      if (ri%2===0){ fill([247,248,253]); doc.rect(18,cy-3.5,pw-36,rowH+1,'F'); }
-      fill(m.rgb); doc.rect(18,cy-3.5,2.2,rowH+1,'F');
+      if (ri%2===0){ fill([247,248,253]); doc.rect(ML-2,cy-3.5,TW+4,rowH+1,'F'); }
+      fill(m.rgb); doc.rect(ML-2,cy-3.5,2.2,rowH+1,'F');
       doc.setFont('helvetica','bold'); doc.setFontSize(6.5); tclr([140,140,165]);
-      doc.text(row.l.toUpperCase(), 24, cy);
+      doc.text(row.l.toUpperCase(), labelX, cy);
       doc.setFont('helvetica','normal'); doc.setFontSize(8.5); tclr([28,28,50]);
-      doc.text(valLines, 74, cy);
+      doc.text(valLines, valX, cy);
       cy += rowH+2.5;
     });
   });
@@ -960,9 +972,8 @@ function ResultsPage({ rankings, userName, onRetake }) {
             Download Full PDF Report
           </button>
           <br/>
-          <a
-            href="./Real_you_book-_Vickie_Barnes.pdf"
-            download="The_Real_You_by_Vickie_Barnes.pdf"
+          <button
+            onClick={()=>downloadRealYou()}
             style={{
               display:'inline-flex', alignItems:'center', gap:'10px',
               padding:'14px 32px', background:'transparent',
@@ -980,7 +991,7 @@ function ResultsPage({ rankings, userName, onRetake }) {
               <path d="M3 14h11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
             </svg>
             Download "The Real You" Book
-          </a>
+          </button>
           <br/>
           <button className="btn-retake" onClick={onRetake}>
             <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
