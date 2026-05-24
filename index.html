@@ -1,818 +1,972 @@
-<script type="text/javascript">
-        var gk_isXlsx = false;
-        var gk_xlsxFileLookup = {};
-        var gk_fileData = {};
-        function filledCell(cell) {
-          return cell !== '' && cell != null;
-        }
-        function loadFileData(filename) {
-        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-            try {
-                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-                var firstSheetName = workbook.SheetNames[0];
-                var worksheet = workbook.Sheets[firstSheetName];
-
-                // Convert sheet to JSON to filter blank rows
-                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                // Filter out blank rows (rows where all cells are empty, null, or undefined)
-                var filteredData = jsonData.filter(row => row.some(filledCell));
-
-                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-                var headerRowIndex = filteredData.findIndex((row, index) =>
-                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-                );
-                // Fallback
-                if (headerRowIndex === -1 || headerRowIndex > 25) {
-                  headerRowIndex = 0;
-                }
-
-                // Convert filtered JSON back to CSV
-                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-                return csv;
-            } catch (e) {
-                console.error(e);
-                return "";
-            }
-        }
-        return gk_fileData[filename] || "";
-        }
-        </script><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Color Personality Test</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    window.jspdf = window.jspdf || {};
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            primary: '#1e3a8a',
-            secondary: '#f3f4f6',
-            accent: '#6b7280',
-            yellow: '#f59e0b',
-            green: '#10b981',
-            red: '#ef4444',
-            blue: '#3b82f6',
-          },
-          animation: {
-            'gradient-swirl': 'gradient-swirl 3s ease infinite',
-          },
-          keyframes: {
-            'gradient-swirl': {
-              '0%, 100%': { 'background-position': '0% 50%' },
-              '50%': { 'background-position': '100% 50%' },
-            },
-          },
-        },
-      },
-    }
-  </script>
   <style>
-    body {
-      background: linear-gradient(45deg, #ef4444, #10b981, #3b82f6, #800080, #ef4444);
-      background-size: 200% 200%;
-      animation: gradient-swirl 3s ease infinite;
-      min-height: 100vh;
-      margin: 0;
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0d0d1a; --surface: #161628; --card: #1e1e38;
+      --border: rgba(255,255,255,0.07); --text: #e8eaf0; --sub: #7880a0;
+      --y: #f59e0b; --yd: rgba(245,158,11,0.13);
+      --b: #60a5fa; --bd: rgba(96,165,250,0.13);
+      --r: #f87171; --rd: rgba(248,113,113,0.13);
+      --g: #34d399; --gd: rgba(52,211,153,0.13);
     }
-    .swirl-text {
-      background: linear-gradient(45deg, #ef4444, #10b981, #3b82f6, #800080, #ef4444);
-      background-size: 200%;
-      background-clip: text;
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      animation: gradient-swirl 3s ease infinite;
-    }
-    .content-container {
-      background: rgba(255, 255, 255, 0.9);
-    }
+    body { font-family:'Outfit',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+    h1,h2,h3,h4 { font-family:'Syne',sans-serif; }
+    #root { min-height:100vh; }
+
+    @keyframes fadeUp { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes scaleIn { from{opacity:0;transform:scale(0.96)} to{opacity:1;transform:scale(1)} }
+    @keyframes slideFromRight { from{opacity:0;transform:translateX(28px)} to{opacity:1;transform:translateX(0)} }
+    @keyframes slideFromLeft { from{opacity:0;transform:translateX(-28px)} to{opacity:1;transform:translateX(0)} }
+    @keyframes orb1 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(35px,-22px) scale(1.08)} }
+    @keyframes orb2 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(-22px,32px) scale(0.92)} }
+    @keyframes orb3 { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(18px,18px) scale(1.04)} 66%{transform:translate(-14px,-10px) scale(0.96)} }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+    @keyframes popIn { 0%{transform:scale(0.7);opacity:0} 70%{transform:scale(1.1)} 100%{transform:scale(1);opacity:1} }
+    @keyframes toast { 0%{opacity:0;transform:translateY(-10px)} 15%,85%{opacity:1;transform:translateY(0)} 100%{opacity:0;transform:translateY(-10px)} }
+
+    /* ── Welcome ─────────────────────────────── */
+    .page-welcome { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; overflow:hidden; padding:2rem; }
+    .orb { position:absolute; border-radius:50%; filter:blur(90px); opacity:0.28; pointer-events:none; }
+    .orb-y { width:420px; height:420px; background:var(--y); top:-8%; left:-10%; animation:orb1 9s ease-in-out infinite; }
+    .orb-b { width:360px; height:360px; background:var(--b); bottom:-8%; right:-6%; animation:orb2 11s ease-in-out infinite; }
+    .orb-r { width:300px; height:300px; background:var(--r); top:42%; right:22%; animation:orb3 13s ease-in-out infinite; }
+    .orb-g { width:260px; height:260px; background:var(--g); bottom:22%; left:12%; animation:orb1 10s ease-in-out infinite reverse; }
+    .welcome-wrap { position:relative; z-index:1; text-align:center; max-width:580px; animation:fadeUp 0.9s ease both; }
+    .chip { display:inline-flex; align-items:center; gap:7px; padding:5px 14px; background:var(--card); border:1px solid var(--border); border-radius:100px; font-size:0.72rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--sub); margin-bottom:1.6rem; }
+    .chip-dot { width:6px; height:6px; border-radius:50%; animation:pulse 2.2s ease-in-out infinite; }
+    .welcome-title { font-size:clamp(3rem,9vw,5.5rem); font-weight:800; line-height:1.02; margin-bottom:1rem; letter-spacing:-0.025em; }
+    .grad-text { background:linear-gradient(135deg,var(--y) 0%,var(--r) 38%,var(--b) 68%,var(--g) 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .welcome-sub { color:var(--sub); font-size:1.05rem; font-weight:300; margin-bottom:2.5rem; line-height:1.65; }
+    .four-dots { display:flex; gap:9px; justify-content:center; margin-bottom:2.2rem; }
+    .four-dots span { width:11px; height:11px; border-radius:50%; }
+    .btn-white { display:inline-flex; align-items:center; gap:10px; padding:14px 36px; background:white; color:#0d0d1a; border:none; border-radius:100px; font-family:'Syne',sans-serif; font-size:1rem; font-weight:700; cursor:pointer; transition:transform .2s,box-shadow .2s; letter-spacing:0.02em; }
+    .btn-white:hover { transform:translateY(-3px); box-shadow:0 14px 44px rgba(255,255,255,0.14); }
+    .btn-white svg { transition:transform .2s; }
+    .btn-white:hover svg { transform:translateX(4px); }
+
+    /* ── Name ─────────────────────────────────── */
+    .page-name { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:2rem; }
+    .name-card { background:var(--surface); border:1px solid var(--border); border-radius:24px; padding:2.8rem; max-width:460px; width:100%; animation:scaleIn .4s ease both; }
+    .name-card h2 { font-size:2rem; font-weight:800; margin-bottom:.4rem; }
+    .name-card p { color:var(--sub); font-size:.92rem; margin-bottom:1.8rem; line-height:1.55; }
+    .color-bar-row { display:flex; gap:5px; margin-bottom:1.8rem; }
+    .color-bar-row div { flex:1; height:3px; border-radius:100px; }
+    .input-field { width:100%; background:var(--card); border:1.5px solid var(--border); border-radius:12px; padding:13px 17px; color:var(--text); font-family:'Outfit',sans-serif; font-size:1rem; outline:none; transition:border-color .2s; margin-bottom:1.2rem; }
+    .input-field:focus { border-color:rgba(255,255,255,0.28); }
+    .input-field::placeholder { color:var(--sub); }
+    .skip-link { display:block; text-align:center; margin-top:.9rem; font-size:.8rem; color:var(--sub); background:none; border:none; cursor:pointer; transition:color .2s; }
+    .skip-link:hover { color:var(--text); }
+
+    /* ── Questions ───────────────────────────── */
+    .page-questions { min-height:100vh; display:flex; flex-direction:column; }
+    .q-header { padding:1.2rem 2rem .8rem; position:sticky; top:0; background:var(--bg); z-index:10; border-bottom:1px solid var(--border); }
+    .q-header-inner { max-width:740px; margin:0 auto; width:100%; }
+    .q-header-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:.65rem; }
+    .q-header-title { font-family:'Syne',sans-serif; font-size:.78rem; font-weight:700; color:var(--sub); letter-spacing:.09em; text-transform:uppercase; }
+    .q-header-count { font-size:.78rem; color:var(--sub); }
+    .prog-track { height:3px; background:var(--card); border-radius:100px; overflow:hidden; }
+    .prog-fill { height:100%; background:linear-gradient(90deg,var(--y),var(--r),var(--b),var(--g)); border-radius:100px; transition:width .45s ease; }
+
+    .q-area { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:2rem 1.5rem; }
+    .q-hint { max-width:740px; width:100%; background:var(--surface); border:1px solid var(--border); border-radius:11px; padding:.85rem 1.1rem; margin-bottom:1.4rem; display:flex; align-items:flex-start; gap:9px; }
+    .q-hint svg { flex-shrink:0; margin-top:2px; color:var(--sub); }
+    .q-hint p { font-size:.82rem; color:var(--sub); line-height:1.55; }
+    .q-hint strong { color:var(--text); }
+    .q-card { max-width:740px; width:100%; }
+    .q-eyebrow { font-size:.68rem; letter-spacing:.13em; text-transform:uppercase; color:var(--sub); margin-bottom:.4rem; }
+    .q-prompt { font-size:clamp(1.6rem,4.5vw,2.4rem); font-weight:800; margin-bottom:1.8rem; letter-spacing:-.015em; }
+
+    .opts-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+    @media(max-width:580px){ .opts-grid{grid-template-columns:1fr;} }
+
+    .opt-card { background:var(--surface); border:1.5px solid var(--border); border-radius:16px; padding:1.2rem 1.3rem; transition:border-color .18s,background .18s; }
+    .opt-card.ranked { }
+    .opt-head { display:flex; align-items:center; gap:7px; margin-bottom:.7rem; }
+    .opt-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+    .opt-clr-lbl { font-size:.62rem; text-transform:uppercase; letter-spacing:.1em; color:var(--sub); }
+    .opt-rank-badge { margin-left:auto; width:21px; height:21px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Syne',sans-serif; font-size:.72rem; font-weight:700; color:#0d0d1a; animation:popIn .25s ease; }
+    .opt-text { font-size:1rem; font-weight:500; margin-bottom:.9rem; line-height:1.4; }
+    .rank-row { display:flex; gap:5px; }
+    .rank-btn { width:34px; height:34px; border-radius:50%; border:1.5px solid var(--border); background:transparent; color:var(--sub); font-family:'Syne',sans-serif; font-size:.82rem; font-weight:700; cursor:pointer; transition:all .15s; display:flex; align-items:center; justify-content:center; }
+    .rank-btn:hover:not(.on) { border-color:rgba(255,255,255,0.24); color:var(--text); }
+    .rank-btn.on { color:#0d0d1a; border-color:transparent; transform:scale(1.1); }
+
+    .q-nav { display:flex; justify-content:space-between; align-items:center; max-width:740px; width:100%; margin-top:1.8rem; padding-bottom:1.5rem; }
+    .nav-prev,.nav-next { display:flex; align-items:center; gap:6px; padding:9px 18px; background:var(--surface); border:1px solid var(--border); border-radius:100px; color:var(--sub); font-family:'Outfit',sans-serif; font-size:.88rem; cursor:pointer; transition:all .2s; }
+    .nav-prev:hover:not(:disabled),.nav-next:hover:not(:disabled) { color:var(--text); border-color:rgba(255,255,255,0.18); }
+    .nav-prev:disabled,.nav-next:disabled { opacity:.28; cursor:default; }
+    .nav-next { background:white; color:#0d0d1a; border-color:white; font-weight:600; }
+    .nav-next:hover:not(:disabled) { background:rgba(255,255,255,.88); }
+    .nav-next:disabled { background:var(--card); color:var(--sub); border-color:var(--border); }
+    .dots-row { display:flex; gap:4px; align-items:center; flex-wrap:wrap; max-width:200px; justify-content:center; }
+    .nav-dot { height:6px; border-radius:100px; cursor:pointer; transition:all .22s ease; }
+    .submit-btn { display:flex; align-items:center; gap:8px; padding:11px 26px; background:linear-gradient(135deg,var(--y),var(--r)); color:white; border:none; border-radius:100px; font-family:'Syne',sans-serif; font-size:.95rem; font-weight:700; cursor:pointer; transition:transform .2s,box-shadow .2s; }
+    .submit-btn:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 8px 30px rgba(245,158,11,.28); }
+    .submit-btn:disabled { opacity:.38; cursor:default; }
+    .toast { position:fixed; top:18px; right:18px; background:var(--g); color:#0d0d1a; border-radius:100px; padding:9px 17px; font-family:'Syne',sans-serif; font-weight:700; font-size:.82rem; z-index:100; animation:toast 1.8s ease forwards; pointer-events:none; }
+
+    /* ── Results ─────────────────────────────── */
+    .page-results { min-height:100vh; padding:3.5rem 1.5rem 4rem; display:flex; flex-direction:column; align-items:center; }
+    .res-header { text-align:center; max-width:580px; margin-bottom:3rem; animation:fadeUp .6s ease both; }
+    .res-badge { display:inline-block; padding:4px 14px; border-radius:100px; font-size:.7rem; letter-spacing:.1em; text-transform:uppercase; font-weight:600; margin-bottom:1rem; }
+    .res-title { font-size:clamp(2.2rem,5.5vw,3.8rem); font-weight:800; line-height:1.08; margin-bottom:.6rem; }
+    .res-sub { color:var(--sub); font-size:.95rem; }
+    .res-body { max-width:760px; width:100%; }
+
+    .scores-box { background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:1.8rem; margin-bottom:1.6rem; animation:fadeUp .6s .12s ease both; }
+    .box-eyebrow { font-size:.68rem; letter-spacing:.12em; text-transform:uppercase; color:var(--sub); margin-bottom:1.4rem; }
+    .score-row { margin-bottom:1.2rem; }
+    .score-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:.45rem; }
+    .score-name { display:flex; align-items:center; gap:8px; font-size:.9rem; font-weight:500; }
+    .score-ndot { width:7px; height:7px; border-radius:50%; }
+    .score-pts { font-family:'Syne',sans-serif; font-weight:700; font-size:.9rem; }
+    .score-track { height:7px; background:var(--card); border-radius:100px; overflow:hidden; }
+    .score-fill { height:100%; border-radius:100px; transition:width 1.1s cubic-bezier(.22,1,.36,1); }
+
+    .primary-box { border-radius:20px; padding:2.3rem; margin-bottom:1.6rem; animation:fadeUp .6s .25s ease both; }
+    .prim-tag { display:inline-block; padding:3px 12px; border-radius:100px; font-size:.68rem; letter-spacing:.1em; text-transform:uppercase; font-weight:700; background:rgba(255,255,255,.13); margin-bottom:.7rem; }
+    .prim-type { font-size:clamp(1.9rem,4.5vw,2.7rem); font-weight:800; margin-bottom:.25rem; letter-spacing:-.015em; }
+    .prim-tag2 { font-size:.8rem; font-style:italic; margin-bottom:1.2rem; opacity:.75; }
+    .prim-desc { font-size:.92rem; line-height:1.72; color:rgba(255,255,255,.82); margin-bottom:1.4rem; }
+    .prim-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+    @media(max-width:480px){ .prim-grid{grid-template-columns:1fr;} }
+    .prim-cell-lbl { font-size:.62rem; text-transform:uppercase; letter-spacing:.1em; margin-bottom:.3rem; }
+    .prim-cell-val { font-size:.82rem; color:rgba(255,255,255,.65); line-height:1.5; }
+
+    .all-cards { display:grid; grid-template-columns:1fr 1fr; gap:.9rem; margin-bottom:1.6rem; animation:fadeUp .6s .38s ease both; }
+    @media(max-width:520px){ .all-cards{grid-template-columns:1fr;} }
+    .mini-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:1.2rem; border-top:3px solid transparent; }
+    .mini-head { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:.2rem; }
+    .mini-type { font-family:'Syne',sans-serif; font-weight:700; font-size:.95rem; }
+    .mini-rank { font-size:.65rem; padding:2px 8px; border-radius:100px; font-weight:600; }
+    .mini-clr { font-size:.7rem; text-transform:uppercase; letter-spacing:.08em; margin-bottom:.65rem; }
+    .mini-desc { font-size:.8rem; color:var(--sub); line-height:1.52; }
+
+    .dl-section { text-align:center; animation:fadeUp .6s .5s ease both; }
+    .btn-dl { display:inline-flex; align-items:center; gap:10px; padding:14px 32px; background:white; color:#0d0d1a; border:none; border-radius:100px; font-family:'Syne',sans-serif; font-weight:700; font-size:1rem; cursor:pointer; transition:transform .2s,box-shadow .2s; }
+    .btn-dl:hover { transform:translateY(-3px); box-shadow:0 14px 44px rgba(255,255,255,.14); }
+    .btn-retake { display:inline-flex; align-items:center; gap:7px; padding:10px 20px; background:transparent; color:var(--sub); border:1px solid var(--border); border-radius:100px; font-family:'Outfit',sans-serif; font-size:.88rem; cursor:pointer; margin-top:1rem; transition:all .2s; }
+    .btn-retake:hover { color:var(--text); border-color:rgba(255,255,255,.18); }
   </style>
 </head>
 <body>
-  <div id="root"></div>
-  <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.development.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.development.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.22.10/babel.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script>
-    window.jspdf = window.jspdf || {};
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            primary: '#1e3a8a',
-            secondary: '#f3f4f6',
-            accent: '#6b7280',
-            yellow: '#f59e0b',
-            green: '#10b981',
-            red: '#ef4444',
-            blue: '#3b82f6',
-          },
-          animation: {
-            'gradient-swirl': 'gradient-swirl 3s ease infinite',
-          },
-          keyframes: {
-            'gradient-swirl': {
-              '0%, 100%': { 'background-position': '0% 50%' },
-              '50%': { 'background-position': '100% 50%' },
-            },
-          },
-        },
-      },
-    }
-  </script>
-  <style>
-    body {
-      background: linear-gradient(45deg, #ef4444, #10b981, #3b82f6, #800080, #ef4444);
-      background-size: 200% 200%;
-      animation: gradient-swirl 3s ease infinite;
-      min-height: 100vh;
-      margin: 0;
-    }
-    .swirl-text {
-      background: linear-gradient(45deg, #ef4444, #10b981, #3b82f6, #800080, #ef4444);
-      background-size: 200%;
-      background-clip: text;
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      animation: gradient-swirl 3s ease infinite;
-    }
-    .content-container {
-      background: rgba(255, 255, 255, 0.9);
-    }
-  </style>
-</head>
-<body>
-  <div id="root"></div>
-  <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.development.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.development.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.22.10/babel.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script type="text/babel">
-    console.log("Script loaded, checking dependencies...");
+<div id="root"></div>
+<script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.development.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.development.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.22.10/babel.min.js"></script>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+const { jsPDF } = window.jspdf;
 
-    // Verify dependencies
-    if (typeof React === 'undefined') console.error("React failed to load");
-    if (typeof ReactDOM === 'undefined') console.error("ReactDOM failed to load");
-    if (typeof Babel === 'undefined') console.error("Babel failed to load");
-    if (typeof window.jspdf === 'undefined') console.error("jsPDF failed to load");
+const CM = {
+  yellow:{ hex:'#f59e0b', dim:'rgba(245,158,11,0.13)', label:'Yellow', rgb:[245,158,11] },
+  blue:  { hex:'#60a5fa', dim:'rgba(96,165,250,0.13)',  label:'Blue',   rgb:[96,165,250] },
+  red:   { hex:'#f87171', dim:'rgba(248,113,113,0.13)', label:'Red',    rgb:[248,113,113] },
+  green: { hex:'#34d399', dim:'rgba(52,211,153,0.13)',  label:'Green',  rgb:[52,211,153] },
+};
 
-    const { useState, useEffect } = React;
-    window.jspdf = window.jspdf || {};
-    const { jsPDF } = window.jspdf;
+const questions = [
+  { id:1,  prompt:"I am:", options:{ yellow:"Encourager", blue:"Deep thinker", red:"Doer", green:"Listener" }},
+  { id:2,  prompt:"I am:", options:{ yellow:"Motivator", blue:"Organizer", red:"Achiever", green:"Mediator" }},
+  { id:3,  prompt:"I am:", options:{ yellow:"Charismatic", blue:"Realistic", red:"Dynamic", green:"Diplomatic" }},
+  { id:4,  prompt:"I am:", options:{ yellow:"Stimulating", blue:"Systematic", red:"Decisive", green:"Accommodating" }},
+  { id:5,  prompt:"I am:", options:{ yellow:"Spontaneous", blue:"Perfectionist", red:"Risking", green:"Accepting" }},
+  { id:6,  prompt:"I am:", options:{ yellow:"Cheerful", blue:"Purposeful", red:"Forceful", green:"Tactful" }},
+  { id:7,  prompt:"I am:", options:{ yellow:"Promoter", blue:"Planner", red:"Producer", green:"Supporter" }},
+  { id:8,  prompt:"I am:", options:{ yellow:"Interrupts", blue:"Critical", red:"Impatient", green:"Indifferent" }},
+  { id:9,  prompt:"I am:", options:{ yellow:"Unfocused", blue:"Pessimistic", red:"Controlling", green:"Indecisive" }},
+  { id:10, prompt:"I am:", options:{ yellow:"Persuasive", blue:"Diligent", red:"Competitive", green:"Compassionate" }},
+  { id:11, prompt:"I am motivated by:", options:{ yellow:"Fun & freedom", blue:"Belonging & contributing", red:"Power & results", green:"Peace & balance" }},
+  { id:12, prompt:"I like:", options:{ yellow:"Variety & activity", blue:"Facts, data & order", red:"Bottom line results", green:"Low key situations" }},
+  { id:13, prompt:"I fear:", options:{ yellow:"Loss of relationship", blue:"Change & disorder", red:"Loss of control", green:"Loss of harmony" }},
+  { id:14, prompt:"I need to be:", options:{ yellow:"Affirmed & recognized", blue:"Appreciated for my quality work", red:"Respected for my accomplishments", green:"Accepted for who I am" }},
+  { id:15, prompt:"I am known for:", options:{ yellow:"Knowing how to have a good time", blue:"Doing things right", red:"Making things happen", green:"Making people feel accepted" }},
+  { id:16, prompt:"At work I would be described as:", options:{ yellow:"Outgoing & social", blue:"Accurate & reliable", red:"Direct & driven", green:"Patient & neutral" }},
+  { id:17, prompt:"I like being with people who are:", options:{ yellow:"Verbally open & casual", blue:"Thoughtful & do their part", red:"Competent & get their job done", green:"Caring & kind" }},
+  { id:18, prompt:"A key part of who I am is:", options:{ yellow:"My relationships with others", blue:"My organization & systems", red:"My accomplishments", green:"My stability" }},
+  { id:19, prompt:"I am frustrated by:", options:{ yellow:"Routine/repetition", blue:"Unpredictability", red:"Incompetence", green:"Insensitivity" }},
+  { id:20, prompt:"Under stress I become:", options:{ yellow:"Fragmented & disorganized", blue:"Moody & withdrawn", red:"Dictatorial & assertive", green:"Overwhelmed & tired" }},
+];
 
-    // Error Boundary Component
-    function ErrorBoundary({ children }) {
-      const [hasError, setHasError] = useState(false);
+const profiles = {
+  yellow:{ type:"Promoter", tagline:'The Sanguine — "Let\'s do it the fun way!"',
+    short:"You thrive in social environments, inspiring others with your energy and infectious enthusiasm. A natural motivator who brings joy and creativity to every situation.",
+    full:"As a Promoter, you thrive in dynamic, social environments where you can inspire and motivate others. Your role as a motivator drives you to encourage fun and enthusiasm, seeking attention, applause, and recognition. You value relationships and freedom, excelling as a brainstormer, encourager, and charismatic communicator. Your strengths include creativity, optimism, and articulate expression, making you adept at understanding people's aspirations and recruiting others to your vision. You focus on possibilities and relationships, preferring stimulating, fast-paced environments.",
+    strengths:"Creative, Enthusiastic, Charismatic, Optimistic, Articulate, Empathetic",
+    limits:"Disorganized, Impulsive, Unrealistic, Careless at times",
+    needs:"Attention, Applause, Recognition",
+    wants:"Relationships, Freedom",
+    motto:'"Live, Laugh, Love" — "Close Enough"',
+    fears:"Being bored, left out, unpopular, too much structure",
+    stress:"Talks loudly, becomes impulsive, blames others, withdraws",
+    growth:"Be less sensitive, focus more on tasks, be more self-controlled, prioritize",
+  },
+  blue:{ type:"Planner", tagline:'The Melancholy — "Let\'s do it the right way!"',
+    short:"You are analytical, organized, and driven by excellence. A precise problem-solver who brings integrity and reliability to everything you touch.",
+    full:"As a Planner, you are a problem-solver who values belonging and contributing to a team. Your motives center on appreciation, acceptance, and order, with a need for accuracy and security. Your strengths lie in integrity, organization, sincerity, and reliability, making you a thoughtful and practical individual. You excel at applying facts and experience to plan and solve problems, preferring an organized, functional environment. Your communication is indirect, detailed, and factual, often favoring written messages. You focus on facts, tasks, and quality, with calculated, head-driven decisions.",
+    strengths:"Organized, Reliable, Thorough, Loyal, Precise, Sincere, Disciplined",
+    limits:"Perfectionistic, Critical, Moody, Self-righteous at times",
+    needs:"Appreciation, Acceptance, Order",
+    wants:"Accuracy, Security",
+    motto:'"A place for everything in its place" — "Do it right the first time"',
+    fears:"Making mistakes, compromising quality, unpredictability, being misunderstood",
+    stress:"Withdraws, becomes moody, develops 'analysis paralysis', disengages",
+    growth:"Widen vision, show more emotions, be more flexible and bendable",
+  },
+  red:{ type:"Producer", tagline:'The Choleric — "Let\'s do it my way!"',
+    short:"You are a natural-born leader driven by results and vision. Decisive, bold, and confident — you make things happen and inspire others to follow your lead.",
+    full:"As a Producer, you are a driven leader motivated by power and results. You seek approval, respect, and the need to be right, with a strong desire for control and leadership. Your strengths include decisiveness, confidence, competence, and vision, making you an influential doer who excels at developing concepts and achieving goals. Your communication is direct, authoritative, and logical, focusing on the bottom line. You thrive on the completion of tasks and winning outcomes.",
+    strengths:"Decisive, Confident, Visionary, Influential, Bold, Competent, Driven",
+    limits:"Domineering, Insensitive, Impatient, Arrogant at times",
+    needs:"Approval, Respect, To be right",
+    wants:"Control, Leadership",
+    motto:'"Time is money" — "I want it done right the first time"',
+    fears:"Loss of control, being seen as incompetent, loss of respect",
+    stress:"Verbally aggressive, domineering, manipulative, pushes harder for results",
+    growth:"Be more flexible, show more emotion, communicate thoughts, be more tactful",
+  },
+  green:{ type:"Peacekeeper", tagline:'The Phlegmatic — "Let\'s do it the easy way!"',
+    short:"You bring calm, balance, and diplomacy to every room. A natural listener and mediator who makes everyone feel accepted and genuinely valued.",
+    full:"As a Peacekeeper, you are a diplomat who seeks peace and balance, valuing acceptance, respect, and independence. Your motives center on stability and contentment, with strengths in clarity, listening, diplomacy, and kindness. You are patient, moderate, and adaptable, excelling at collaborating and mediating. Your communication is indirect, empathetic, and calm, and you prefer a friendly, casual environment. You enjoy involvement and relationships, and your decisions are consultative and heart-driven.",
+    strengths:"Patient, Diplomatic, Kind, Adaptable, Calm, Empathetic, Dependable",
+    limits:"Indecisive, Unmotivated, Stubborn, Overwhelmed under pressure",
+    needs:"Acceptance, Respect, Independence",
+    wants:"Stability, Contentment",
+    motto:'"Peace at any price" — "Don\'t make waves"',
+    fears:"Major life change, overwhelming circumstances, being alone with big problems",
+    stress:"Avoids, isolates, becomes passive, withdraws into TV or sleep",
+    growth:"Work faster, find own solutions, show more emotion, set objectives",
+  },
+};
 
-      useEffect(() => {
-        const handleError = (error) => {
-          console.error("ErrorBoundary caught an error:", error);
-          setHasError(true);
-        };
-        window.addEventListener('error', handleError);
-        return () => window.removeEventListener('error', handleError);
-      }, []);
+const pdfSections = {
+  yellow:{ title:"PROMOTER (Yellow) — The Sanguine", rows:[
+    {l:"Temperament", v:"The Actor / Talker / The Enjoyer"},
+    {l:"Scripture", v:"1 Cor. 9:27"},
+    {l:"Symbol", v:'The Palm Tree — The Passionate Maria: "Let\'s do it the fun way!"'},
+    {l:"Personality Type", v:"Promoter, Influencer, Extrovert, Optimistic"},
+    {l:"Roles", v:"Motivator"},
+    {l:"Motives", v:"Fun & freedom, encouraging people"},
+    {l:"Needs", v:"Attention, Applause, Recognition"},
+    {l:"Wants", v:"Relationships, Freedom"},
+    {l:"Strengths", v:"Brainstorms, Encourages, Enthusiastic, Charismatic, Creative, Articulate, Bubbly, Joyful, Funny, Entertaining, Sociable, Makes friends easily, Vivacious, Excellent speaker, Empathetic, Diplomatic, Loyal"},
+    {l:"Limitations", v:"Disorganized, Careless, Impulsive, Unrealistic, Obnoxious"},
+    {l:"Focus on", v:"Possibilities and relationships"},
+    {l:"Communication", v:"Direct, Energetic, Enthusiastic, Loud, Interrupts"},
+    {l:"Work Environment", v:"Stimulating, Fast-paced, Congenial, Varied"},
+    {l:"Decisions", v:"Spontaneous — from the Heart, Daring"},
+    {l:"Motto", v:'"Live, Laugh, Love" — "Close Enough"'},
+    {l:"Fears", v:"Being bored, left out, unpopular, too much structure, criticism"},
+    {l:"Under Stress", v:"Talks loudly, becomes obnoxious, impulsive, blames others, keeps distance"},
+    {l:"Incompatible With", v:"Uptight, non-flexible, serious, boring, narrow-minded people"},
+    {l:"Compatible With", v:"Possibilities-oriented, people-oriented, those who enjoy life"},
+    {l:"Good at", v:"Recruiting, enlisting, innovation, relationships, selling, encouraging, inspiring"},
+    {l:"Growth Areas", v:"Be less sensitive, focus more on tasks, be more self-controlled, prioritize"},
+    {l:"Why We Need You", v:"Your creativity, hospitality, optimism, and positive attitude"},
+    {l:"Why You Need Others", v:"To concentrate more on tasks, be more organized and punctual"},
+  ]},
+  blue:{ title:"PLANNER (Blue) — The Melancholy", rows:[
+    {l:"Temperament", v:"Perfectionist, Analytical, Soft-spoken"},
+    {l:"Scripture", v:"Phil 4:8-9"},
+    {l:"Symbol", v:'Ornamental Tree — The Structured Martha: "Let\'s do it the right way!"'},
+    {l:"Personality Type", v:"Planner, Conscientious, Problem-solver"},
+    {l:"Roles", v:"Problem-solver"},
+    {l:"Motives", v:"Belonging and contributing"},
+    {l:"Needs", v:"Appreciation, Acceptance, Order"},
+    {l:"Wants", v:"Accuracy, Security"},
+    {l:"Strengths", v:"Integrity, Organizer, Sincere, Reliable, Practical, Thoughtful, Loyal, Thorough, Precise, Disciplined, Philosophical, Faithful, Creative, Methodical, Dependable, Polished in manners"},
+    {l:"Limitations", v:"Self-righteous, Perfectionist, Worries, Moody, Critical"},
+    {l:"Focus on", v:"Facts, tasks, and quality"},
+    {l:"Communication", v:"Indirect, Detailed, Factual, Orderly — prefers written messages"},
+    {l:"Work Environment", v:"Organized, Functional, Practical"},
+    {l:"Decisions", v:"Calculated — Head, weighs circumstances carefully"},
+    {l:"Motto", v:'"A place for everything in its place" — "Do it right the first time"'},
+    {l:"Fears", v:"Making mistakes, compromising quality, being misunderstood, unpredictability"},
+    {l:"Under Stress", v:"Withdrawn, moody, cold, disengages, develops analysis paralysis, holds onto old ways"},
+    {l:"Incompatible With", v:"Disorganized, insincere, inauthentic, superficial people"},
+    {l:"Compatible With", v:"Serious, dependable, intellectual, deep, appreciative people"},
+    {l:"Good at", v:"Taking responsibility, details, punctuality, quality performance, integrity, structured routines"},
+    {l:"Growth Areas", v:"Widen vision, show more emotions, be more flexible"},
+    {l:"Why We Need You", v:"You can organize and prioritize with high standards, detail focus, and passion"},
+    {l:"Why You Need Others", v:"To be more flexible, think of new ideas, work with new information"},
+  ]},
+  red:{ title:"PRODUCER (Red) — The Choleric", rows:[
+    {l:"Temperament", v:"The Active, Driven, Practical One"},
+    {l:"Scripture", v:"Eph. 5:8"},
+    {l:"Symbol", v:'Rose Tree — The Strategic Esther: "Let\'s do it my way!"'},
+    {l:"Personality Type", v:"Producer, Dominance, Extrovert, Goal-setter, Decisive, Adventuresome"},
+    {l:"Roles", v:"Leader, Visionary"},
+    {l:"Motives", v:"Power and results, Strong stamina and drive"},
+    {l:"Needs", v:"Approval, Respect, To be right"},
+    {l:"Wants", v:"Control, Leadership"},
+    {l:"Strengths", v:"Decisive, Doer, Confident, Competent, Driven, Visionary, Influential, Bold, Strong will power, Keen perception, Organizes well, Productive, Assertive"},
+    {l:"Limitations", v:"Domineering, Selfish, Insensitive, Manipulative, Arrogant, Impatient, Sarcastic, Egocentric"},
+    {l:"Focus on", v:"Possibilities and tasks — sees what needs to be done and does it"},
+    {l:"Communication", v:"Direct, Authoritative, Logical, Bottom Line, Unemotional"},
+    {l:"Work Environment", v:"Efficient, Effective, Productive, fast-paced with minimal supervision"},
+    {l:"Decisions", v:"Decisive — Head-driven"},
+    {l:"Motto", v:'"Time is money" — "I want it done right the first time"'},
+    {l:"Fears", v:"Loss of control, being seen as wrong or incompetent, loss of respect"},
+    {l:"Under Stress", v:"Verbally aggressive, domineering, manipulative, assertive, pushes harder for production"},
+    {l:"Incompatible With", v:"Lazy, non-productive, ineffective, incompetent, weak people"},
+    {l:"Compatible With", v:"Other high performers, self-assured, competent, submissive colleagues"},
+    {l:"Good at", v:"Vision, strategies, making things happen, future-oriented, accepting change, energizing others"},
+    {l:"Growth Areas", v:"Be more flexible, practice self-discipline, show more emotion, be more tactful"},
+    {l:"Why We Need You", v:"Can function under pressure, fast action, achieves more than ordinary, natural leader"},
+    {l:"Why You Need Others", v:"To focus on details, provide structure, help finish tasks, learn to delegate"},
+  ]},
+  green:{ title:"PEACEKEEPER (Green) — The Phlegmatic", rows:[
+    {l:"Temperament", v:"The Loyal Peacemaker"},
+    {l:"Scripture", v:"1 Cor. 9:27"},
+    {l:"Symbol", v:'Pine Tree — The Analytic Hanna: "Let\'s do it the easy way!"'},
+    {l:"Personality Type", v:"Peacekeeper, Steadiness, Personable, Witty, Tranquil, Mediator"},
+    {l:"Roles", v:"Diplomat"},
+    {l:"Motives", v:"Peace and Balance"},
+    {l:"Needs", v:"Acceptance, Respect, Independence, Time to think before speaking"},
+    {l:"Wants", v:"Stability, Contentment"},
+    {l:"Strengths", v:"Clarity, Listens, Diplomatic, Kind, Patient, Moderate, Adaptable, Peaceful, Tolerant, Easy to get along with, Dependable, Pleasant, Good listener, Precise"},
+    {l:"Limitations", v:"Indecisive, Unmotivated, Overly sensitive, Stubborn, Unproductive, Overwhelmed, Submissive"},
+    {l:"Focus on", v:"Facts of relationships — practical, analytic, one thing at a time"},
+    {l:"Communication", v:"Indirect, Empathetic, Calm and collected, Hesitant to speak up"},
+    {l:"Work Environment", v:"Friendly, Casual, Open door policy — harmonious and peaceful settings"},
+    {l:"Decisions", v:"Consultative — Heart-driven"},
+    {l:"Motto", v:'"Peace at any price" — "Don\'t make waves"'},
+    {l:"Fears", v:"Major life change, overwhelming circumstances, being alone with big problems"},
+    {l:"Under Stress", v:"Avoids, isolates, denies, becomes passive, quits when things get rough"},
+    {l:"Incompatible With", v:"Controlling, pushy, loud, domineering, demanding people"},
+    {l:"Compatible With", v:"Collaborative, supportive people who respect them for who they are"},
+    {l:"Good at", v:"Keeping the peace, showing compassion, staying calm, listening, finding balance, building friendships"},
+    {l:"Growth Areas", v:"Work faster, find own solutions, consider others' needs, show more emotions, set goals"},
+    {l:"Why We Need You", v:"Excellent cooperation, calming influence on others, natural peacekeeper"},
+    {l:"Why You Need Others", v:"To see the bigger picture, get ideas, work with others better, give more structure"},
+  ]},
+};
 
-      if (hasError) {
-        return (
-          <div className="text-red-500 p-4 text-center">
-            Something went wrong. Please check the console (F12) for details and refresh the page.
-          </div>
-        );
+const summaryRows = [
+  {cat:"TYPE",         y:"Promoter",     b:"Planner",       r:"Producer",      g:"Peacekeeper"},
+  {cat:"ROLES",        y:"Motivator",    b:"Problem-solver", r:"Leader",        g:"Diplomat"},
+  {cat:"MOTIVES",      y:"Fun & encouragement", b:"Belonging & contributing", r:"Power & results", g:"Peace & balance"},
+  {cat:"NEEDS",        y:"Attention, Applause, Recognition", b:"Appreciation, Acceptance, Order", r:"Approval, Respect, To be right", g:"Acceptance, Respect, Independence"},
+  {cat:"WANTS",        y:"Relationships, Freedom", b:"Accuracy, Security", r:"Control, Leadership", g:"Stability, Contentment"},
+  {cat:"STRENGTHS",    y:"Creative, Charismatic, Enthusiastic", b:"Organized, Reliable, Precise", r:"Decisive, Confident, Visionary", g:"Patient, Diplomatic, Kind"},
+  {cat:"LIMITATIONS",  y:"Disorganized, Impulsive", b:"Perfectionist, Critical", r:"Domineering, Insensitive", g:"Indecisive, Unmotivated"},
+  {cat:"FOCUS",        y:"Possibilities & relationships", b:"Facts, tasks & quality", r:"Possibilities & tasks", g:"Facts & relationships"},
+  {cat:"ADEPT AT",     y:"Understanding aspirations", b:"Applying facts & experience", r:"Developing concepts", g:"Meeting daily concerns"},
+  {cat:"COMMUNICATION",y:"Direct, Energetic, Loud", b:"Indirect, Detailed, Factual", r:"Direct, Authoritative, Logical", g:"Indirect, Empathetic, Calm"},
+  {cat:"WORK STYLE",   y:"Stimulating, Fast-paced", b:"Organized, Functional", r:"Efficient, Productive", g:"Friendly, Casual"},
+  {cat:"DECISIONS",    y:"Spontaneous — Heart", b:"Calculated — Head", r:"Decisive — Head", g:"Consultative — Heart"},
+  {cat:"UNDER STRESS", y:"Fragmented, Impulsive", b:"Moody, Withdrawn", r:"Dictatorial, Assertive", g:"Overwhelmed, Avoids"},
+  {cat:"KNOWN AS",     y:"Adorable Flake", b:"Nit-picky, Negative", r:"Attila the Hun", g:"Softie, Mute"},
+];
+
+// ─────────────── PDF Generator ────────────────────────────────────────────
+function generatePDF(name, sorted) {
+  const doc = new jsPDF();
+  const pw = doc.internal.pageSize.getWidth();
+  const ph = doc.internal.pageSize.getHeight();
+  const displayName = name || "Anonymous";
+  const today = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+  const primary = sorted[0];
+  const pC = CM[primary.color].rgb;
+
+  // helpers
+  const fill  = (rgb) => doc.setFillColor(rgb[0],rgb[1],rgb[2]);
+  const tclr  = (rgb) => doc.setTextColor(rgb[0],rgb[1],rgb[2]);
+  const dclr  = (rgb) => doc.setDrawColor(rgb[0],rgb[1],rgb[2]);
+  const HR    = (y, clr=[218,218,232]) => { dclr(clr); doc.setLineWidth(.28); doc.line(18,y,pw-18,y); };
+  const wrap  = (txt, maxW) => doc.splitTextToSize(String(txt||''), maxW);
+  const lighter = ([r,g,b], amt=45) => [Math.min(r+amt,255),Math.min(g+amt,255),Math.min(b+amt,255)];
+  const darker  = ([r,g,b], amt=60) => [Math.max(r-amt,0),Math.max(g-amt,0),Math.max(b-amt,0)];
+  const WHITE = [255,255,255];
+  const DARK  = [15,15,26];
+  const GRAY  = [90,90,115];
+  const LGRAY = [230,230,242];
+
+  // ── COVER PAGE ──────────────────────────────────────────────────────────
+  fill(pC); doc.rect(0,0,pw,72,'F');
+  fill(lighter(pC,50)); doc.rect(pw-55,0,55,72,'F');
+  fill(darker(pC,20)); doc.rect(0,68,pw,4,'F');
+
+  // label
+  doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+  tclr([...WHITE.map(v=>v*0.85)]); // slightly dimmer white
+  doc.text('PERSONALITY PROFILE',20,18);
+
+  // big type name
+  doc.setFont('helvetica','bold'); doc.setFontSize(34);
+  tclr(WHITE);
+  doc.text(profiles[primary.color].type.toUpperCase(), 20, 44);
+
+  // tagline
+  doc.setFont('helvetica','normal'); doc.setFontSize(9.5);
+  tclr(WHITE);
+  doc.text(profiles[primary.color].tagline, 20, 56);
+
+  // name + date (right)
+  doc.setFont('helvetica','bold'); doc.setFontSize(10);
+  tclr(WHITE);
+  doc.text(displayName, pw-20, 25, {align:'right'});
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
+  doc.text(today, pw-20, 34, {align:'right'});
+
+  // white body
+  fill(WHITE); doc.rect(0,72,pw,ph-72,'F');
+
+  // score bars section
+  let y = 88;
+  doc.setFont('helvetica','bold'); doc.setFontSize(7); tclr([150,150,175]);
+  doc.text('PERSONALITY SCORE RESULTS', 20, y); y+=7;
+
+  const maxSc = 80;
+  sorted.forEach(({color, score},i) => {
+    const m = CM[color];
+    const barW = Math.round((score/maxSc)*(pw-52));
+    // labels
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); tclr(DARK);
+    doc.text(`${profiles[color].type}`, 20, y+4);
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); tclr(m.rgb);
+    doc.text(`${score} pts`, pw-20, y+4, {align:'right'});
+    // track
+    fill(LGRAY); doc.roundedRect(20, y+7, pw-40, 5.5, 2.5, 2.5,'F');
+    // fill bar
+    fill(m.rgb); doc.roundedRect(20, y+7, barW, 5.5, 2.5, 2.5,'F');
+    y += 20;
+  });
+
+  HR(y+2); y+=12;
+
+  // primary description section
+  doc.setFont('helvetica','bold'); doc.setFontSize(7); tclr([150,150,175]);
+  doc.text('YOUR PRIMARY PERSONALITY TYPE', 20, y); y+=8;
+
+  // accent bar
+  fill(pC); doc.rect(20,y,3,25,'F');
+  const descLines = wrap(profiles[primary.color].full, pw-58);
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); tclr([35,35,60]);
+  doc.text(descLines.slice(0,5), 28, y+5);
+  y += 32;
+
+  // trait boxes
+  const traitData = [
+    {label:'Strengths', val:profiles[primary.color].strengths},
+    {label:'Limitations', val:profiles[primary.color].limits},
+    {label:'Core Needs', val:profiles[primary.color].needs},
+    {label:'Key Wants', val:profiles[primary.color].wants},
+  ];
+  doc.setFont('helvetica','bold'); doc.setFontSize(7); tclr([150,150,175]);
+  doc.text('KEY TRAITS', 20, y); y+=6;
+
+  traitData.forEach(({label,val},i) => {
+    if (y > ph-28) { doc.addPage(); fill(WHITE); doc.rect(0,0,pw,ph,'F'); y=18; }
+    const vLines = wrap(val, pw-80);
+    const bh = Math.max(13, vLines.length*4.2+7);
+    fill(i%2===0 ? [248,248,253] : WHITE); doc.rect(20,y,pw-40,bh,'F');
+    fill(pC); doc.rect(20,y,2.5,bh,'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(6.5); tclr([140,140,165]);
+    doc.text(label.toUpperCase(),27,y+5);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.5); tclr([35,35,60]);
+    doc.text(vLines,27,y+10);
+    y += bh+3;
+  });
+
+  HR(y+3); y+=11;
+  // motto
+  doc.setFont('helvetica','bold'); doc.setFontSize(7); tclr([150,150,175]);
+  doc.text('MOTTO', 20, y); y+=6;
+  doc.setFont('helvetica','italic'); doc.setFontSize(10); tclr(pC);
+  const mottoLines = wrap(profiles[primary.color].motto, pw-40);
+  doc.text(mottoLines, 20, y);
+
+  // ── PROFILE PAGES ──────────────────────────────────────────────────────
+  sorted.forEach(({color, score}) => {
+    doc.addPage();
+    const m = CM[color];
+    const sect = pdfSections[color];
+    const prof = profiles[color];
+
+    // header band
+    fill(m.rgb); doc.rect(0,0,pw,42,'F');
+    fill(lighter(m.rgb,42)); doc.rect(pw-52,0,52,42,'F');
+    fill(darker(m.rgb,18)); doc.rect(0,38,pw,4,'F');
+
+    doc.setFont('helvetica','bold'); doc.setFontSize(20); tclr(WHITE);
+    doc.text(prof.type.toUpperCase(), 20, 22);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.5); tclr(WHITE);
+    doc.text(sect.title, 20, 33);
+    // score badge
+    doc.setFont('helvetica','bold'); doc.setFontSize(22); tclr(WHITE);
+    doc.text(String(score), pw-22, 24, {align:'right'});
+    doc.setFont('helvetica','normal'); doc.setFontSize(6.5); tclr(WHITE);
+    doc.text('POINTS', pw-22, 32, {align:'right'});
+
+    fill(WHITE); doc.rect(0,42,pw,ph-42,'F');
+    let cy = 54;
+
+    sect.rows.forEach((row,ri) => {
+      if (cy > ph-18) {
+        doc.addPage();
+        fill(m.rgb); doc.rect(0,0,pw,6,'F');
+        fill(WHITE); doc.rect(0,6,pw,ph-6,'F');
+        cy = 16;
       }
+      const valLines = wrap(row.v, pw-82);
+      const rowH = Math.max(9.5, valLines.length*4+5);
+      if (ri%2===0){ fill([247,248,253]); doc.rect(18,cy-3.5,pw-36,rowH+1,'F'); }
+      fill(m.rgb); doc.rect(18,cy-3.5,2.2,rowH+1,'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(6.5); tclr([140,140,165]);
+      doc.text(row.l.toUpperCase(), 24, cy);
+      doc.setFont('helvetica','normal'); doc.setFontSize(8.5); tclr([28,28,50]);
+      doc.text(valLines, 74, cy);
+      cy += rowH+2.5;
+    });
+  });
 
-      return children;
+  // ── SUMMARY TABLE PAGE ─────────────────────────────────────────────────
+  doc.addPage();
+  fill(DARK); doc.rect(0,0,pw,38,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(15); tclr(WHITE);
+  doc.text('PERSONALITY TYPE SUMMARY', 20, 20);
+  doc.setFont('helvetica','normal'); doc.setFontSize(8); tclr([150,160,190]);
+  doc.text('A comparative overview of all four personality types', 20, 30);
+  fill(WHITE); doc.rect(0,38,pw,ph-38,'F');
+
+  // column positions
+  const CX = [18,56,96,136,174];
+  const CW = [34,36,36,36,34];
+  const CK = ['y','b','r','g'];
+
+  let ty = 51;
+  // col headers
+  doc.setFont('helvetica','bold'); doc.setFontSize(7); tclr([140,140,165]);
+  doc.text('CATEGORY', CX[0], ty);
+  CK.forEach((k,i) => {
+    tclr(CM[{y:'yellow',b:'blue',r:'red',g:'green'}[k]].rgb);
+    doc.text(CM[{y:'yellow',b:'blue',r:'red',g:'green'}[k]].label.toUpperCase(), CX[i+1], ty);
+  });
+  ty+=3; HR(ty,[210,210,230]); ty+=5;
+
+  summaryRows.forEach((row,ri) => {
+    const colorMap = {y:'yellow',b:'blue',r:'red',g:'green'};
+    const allLines = CK.map((k,ci) => wrap(row[k]||'', CW[ci+1]-2));
+    const maxL = Math.max(...allLines.map(l=>l.length));
+    const rowH = Math.max(10, maxL*3.6+5);
+
+    if (ty+rowH > ph-14) {
+      doc.addPage();
+      fill(DARK); doc.rect(0,0,pw,7,'F');
+      fill(WHITE); doc.rect(0,7,pw,ph-7,'F');
+      ty = 17;
     }
 
-    const questions = [
-      { id: 1, prompt: "I am:", options: { yellow: "Encourager", blue: "Deep thinker", red: "Doer", green: "Listener" } },
-      /* Temporarily commented out for testing
-      { id: 2, prompt: "I am:", options: { yellow: "Motivator", blue: "Organizer", red: "Achiever", green: "Mediator" } },
-      { id: 3, prompt: "I am:", options: { yellow: "Charismatic", blue: "Realistic", red: "Dynamic", green: "Diplomatic" } },
-      { id: 4, prompt: "I am:", options: { yellow: "Stimulating", blue: "Systematic", red: "Decisive", green: "Accommodating" } },
-      { id: 5, prompt: "I am:", options: { yellow: "Spontaneous", blue: "Perfectionist", red: "Risking", green: "Accepting" } },
-      { id: 6, prompt: "I am:", options: { yellow: "Cheerful", blue: "Purposeful", red: "Forceful", green: "Tactful" } },
-      { id: 7, prompt: "I am:", options: { yellow: "Promoter", blue: "Planner", red: "Producer", green: "Supporter" } },
-      { id: 8, prompt: "I am:", options: { yellow: "Interrupts", blue: "Critical", red: "Impatient", green: "Indifferent" } },
-      { id: 9, prompt: "I am:", options: { yellow: "Unfocused", blue: "Pessimistic", red: "Controlling", green: "Indecisive" } },
-      { id: 10, prompt: "I am:", options: { yellow: "Persuasive", blue: "diligent", red: "Competitive", green: "Compassionate" } },
-      { id: 11, prompt: "I am motivated by:", options: { yellow: "Fun & freedom", blue: "Belonging & contributing", red: "Power & results", green: "Peace & balance" } },
-      { id: 12, prompt: "I like:", options: { yellow: "Variety & activity", blue: "Facts, data & order", red: "Bottom line results", green: "Low key situations" } },
-      { id: 13, prompt: "I fear:", options: { yellow: "Loss of relationship", blue: "Change & disorder", red: "Loss of control", green: "Loss of harmony" } },
-      { id: 14, prompt: "I need to be:", options: { yellow: "Affirmed & recognized", blue: "Appreciated for my quality work", red: "Respected for my accomplishments", green: "Accepted for who I am" } },
-      { id: 15, prompt: "I am known for:", options: { yellow: "Knowing how to have a good time", blue: "Doing things right", red: "Making things happen", green: "Making people feel accepted" } },
-      { id: 16, prompt: "At work I would be described as:", options: { yellow: "Outgoing & social", blue: "accurate & reliable", red: "Direct & driven", green: "Patient & neutral" } },
-      { id: 17, prompt: "I like being with people who are:", options: { yellow: "Verbally open & casual", blue: "Thoughtful & do their part", red: "Competent & get their job done", green: "Caring & kind" } },
-      { id: 18, prompt: "A key part of who I am is:", options: { yellow: "My relationships with others", blue: "My organization & systems", red: "My accomplishments", green: "My stability" } },
-      { id: 19, prompt: "I am frustrated by:", options: { yellow: "Routine/repetition", blue: "Unpredictability", red: "Incompetence", green: "Insensitivity" } },
-      { id: 20, prompt: "Under stress I become:", options: { yellow: "Fragmented & disorganized", blue: "Moody & withdrawn", red: "Dictatorial & assertive", green: "Overwhelmed & tired" } },
-      */
-    ];
+    if (ri%2===0){ fill([248,249,253]); doc.rect(18,ty-3,pw-36,rowH,'F'); }
+    dclr([225,225,238]); doc.setLineWidth(.18); doc.line(18,ty+rowH-3,pw-18,ty+rowH-3);
 
-    const personalityTypes = {
-      yellow: {
-        type: "Promoter",
-        explanation: `
-          <strong>Promoter (Yellow)</strong>: As a Promoter, you thrive in dynamic, social environments where you can inspire and motivate others. Your role as a motivator drives you to encourage fun and enthusiasm, seeking attention, applause, and recognition. You value relationships and freedom, excelling as a brainstormer, encourager, and charismatic communicator. Your strengths include creativity, optimism, and articulate expression, making you adept at understanding people's aspirations and recruiting others to your vision. However, you may struggle with disorganization, impulsiveness, or appearing unrealistic or obnoxious. You focus on possibilities and relationships, preferring a stimulating, fast-paced office with a congenial atmosphere. Your decisions are spontaneous and heart-driven, and you enjoy the challenge of starting new projects. Others may see you as "Scatteriffic" or an "Adorable Flake," reflecting your energetic but sometimes unfocused nature.
-        `,
-      },
-      blue: {
-        type: "Planner",
-        explanation: `
-          <strong>Planner (Blue)</strong>: As a Planner, you are a problem-solver who values belonging and contributing to a team. Your motives center on appreciation, acceptance, and order, with a need for accuracy and security. Your strengths lie in integrity, organization, sincerity, and reliability, making you a thoughtful and practical individual. You excel at applying facts and experience to plan and solve problems, preferring an organized, functional office environment. Your communication is indirect, detailed, and factual, often favoring written messages. However, you may come across as self-righteous, perfectionistic, or critical, and can be prone to worry or moodiness. You focus on facts, tasks, and quality, with calculated, head-driven decisions. You enjoy developing systems and processes, but others might label you as "Anal Retentive" or "Nit-picky" due to your meticulous nature.
-        `,
-      },
-      red: {
-        type: "Producer",
-        explanation: `
-          <strong>Producer (Red)</strong>: As a Producer, you are a driven leader motivated by power and results. You seek approval, respect, and the need to be right, with a strong desire for control and leadership. Your strengths include decisiveness, confidence, competence, and vision, making you an influential doer who excels at developing concepts and achieving goals. Your communication is direct, authoritative, and logical, focusing on the bottom line without emotional embellishment. You prefer an efficient, effective, and productive office environment, thriving on the completion of tasks and winning outcomes. However, you may be perceived as domineering, selfish, or insensitive, with tendencies toward manipulation or arrogance. Your decisions are decisive and head-driven, but others might call you "Ruthless" or "Attila the Hun" due to your assertive nature.
-        `,
-      },
-      green: {
-        type: "Peacekeeper",
-        explanation: `
-          <strong>Peacekeeper (Green)</strong>: As a Peacekeeper, you are a diplomat who seeks peace and balance, valuing acceptance, respect, and independence. Your motives center on stability and contentment, with strengths in clarity, listening, diplomacy, and kindness. You are patient, moderate, and adaptable, excelling at collaborating and mediating to meet the daily concerns of people. Your communication is indirect, empathetic, and calm, though you may hesitate to speak up. You prefer a friendly, casual office with an open-door policy, enjoying involvement and relationships. However, you can be indecisive, unmotivated, or stubborn, and may feel overwhelmed under pressure. Your decisions are consultative and heart-driven, focusing on facts and relationships. Others may see you as "Ignored" or a "Softie," reflecting your gentle, accommodating demeanor.
-        `,
-      },
-    };
+    doc.setFont('helvetica','bold'); doc.setFontSize(7); tclr([75,75,105]);
+    doc.text(row.cat, CX[0], ty+2);
+    CK.forEach((k,ci) => {
+      doc.setFont('helvetica','normal'); doc.setFontSize(7.5); tclr([28,28,50]);
+      doc.text(allLines[ci], CX[ci+1], ty+2);
+    });
+    ty += rowH;
+  });
 
-    const additionalContent = {
-      plannerBlue: {
-        title: "PLANNER (Blue) - The Melancholy",
-        content: [
-          { label: "Temperament", value: "Perfectionist, Analytical, Soft spoken" },
-          { label: "Main Scripture", value: "Phil 4:8-9" },
-          { label: "Ornamental Tree/The Structured Martha", value: '"Let\'s do it right way"' },
-          { label: "People say", value: "We give you the job, that we want done correctly; don't be so serious, live a little!, Can you just look on the bright side for once!" },
-          { label: "Personality Type", value: "Planner, Conscientious," },
-          { label: "Roles", value: "Problem-solver" },
-          { label: "Motives", value: "Belonging and contributing" },
-          { label: "Needs", value: "Appreciation, Acceptance, Order" },
-          { label: "Wants", value: "Accuracy, Security" },
-          { label: "Strengths", value: "Integrity, Organizer, Sincere, Reliable, Practical, Thoughtful, Loyal, Thorough, precise, considers all information, talented and gifted, orderly, scheduled, purposeful, disciplined, philosophical, rich and sensitive nature, faithful friend, knows own limitations, Creativity, crafty, dependable, does not forget obligations/promises, polished in manners, dress & style, cultured, sees problem and finds creative solutions, methodical" },
-          { label: "Limitations", value: "Self-righteous, perfectionist, worries, moody, critical" },
-          { label: "Focus on", value: "Facts, tasks, and quality" },
-          { label: "Adept at", value: "Applying facts and experience" },
-          { label: "Abilities to", value: "Plan and problem solve" },
-          { label: "Communication\nTells=Direct, Asks=Indirect", value: "Indirect, Detailed, Factual, Orderly messages, Prefers written" },
-          { label: "Likes environment to be", value: "Organized, Functional, Practical" },
-          { label: "Pluses about any job", value: "The process, Developing systems" },
-          { label: "Decisions are", value: "Calculated- Head, weighs and measures circumstances carefully" },
-          { label: "Motto", value: '"A place for everything in its place"-- "Make a plan and work the plan"-- "Do it right the first time"-- "Those of you who think you know everything really annoy those of us who do!"' },
-          { label: "Fears", value: "Making a mistake, compromising quality of standards, being misunderstood or dismissed emotionally, people that arrive late, forgetfulness, unpredictability" },
-          { label: "Stressors", value: "Change, chaos, sloppy work- man ship, irresponsibility" },
-          { label: "When stressed", value: "Withdrawn, moody, cold, disengages, Goes back to facts and data for answers, indecisive, develops 'analysis paralysis', holds onto old ways and things" },
-          { label: "Incompatible people", value: "Disorganized, insincere, inauthentic, superficial" },
-          { label: "Compatible people", value: "Serious, dependable, intellectual, deep, appreciative people" },
-          { label: "Good at", value: "Taking responsibility, getting things done, figuring things out, details, punctuality, quality performances, caring for the needy, talk and writes specifically, structured and routined, remembers numbers, likes repeating, procedures, rules, neat, intelligent, practice skills until perfect, integrity is important" },
-          { label: "Negative", value: "sad, gloomy disposition, too idealistic, lives in past or future, perfectionist, touchy, too introspective, critical of self, dwells on offenses, hard to forgive, false humility, complains, negative, manipulative, touchy, loner, frustrated by vague, not comfortable w/ change, manages emotions very intense, easily stressed, sets too high standards" },
-          { label: "Why do we need you?", value: "You can organize and prioritize, high standard, perfectionist, detailed focus, passion" },
-          { label: "Why do I need others?", value: "To be more flexible, to think of new ideas, to 'chill' a bit more, to with w/ new information" },
-          { label: "Growth areas", value: "Widen vision, show more emotions, be more bendable." },
-        ],
-      },
-      peacekeeperGreen: {
-        title: "PEACEKEEPER (Green) - The Phlegmatic",
-        content: [
-          { label: "Temperament", value: "The Loyal Peacemaker" },
-          { label: "Main Scripture", value: "1 Cor. 9:27" },
-          { label: "Pine Tree/The analytic Hanna", value: '"Let\'s do it the easy way"' },
-          { label: "People say", value: "You are as stable as a mountain, we don't know what you think, not even a bomb can get you going, rather safe than sorry, what you see is what you get." },
-          { label: "Personality Type", value: "Peacekeeper, Steadiness, Personable, Witty humor, Tranquil, Mediator, Worrier, Pessimistic, Skeptic," },
-          { label: "Roles", value: "Diplomat" },
-          { label: "Motives", value: "Peace and Balance" },
-          { label: "Needs", value: "Acceptance, Respect, Independence, Time to think before you talk" },
-          { label: "Wants", value: "Stability, Contentment" },
-          { label: "Strengths", value: "Clarity, Listens, Diplomatic, Kind, Patient, Moderate, Adaptable, Peaceful, Tolerant, Balanced, not being easily annoyed by imperfections or flaws, not shaken by outward conditions, easy to get along with, dependable, pleasant, enjoyable, good listener, precise in talking and writing, competitive, completes tasks" },
-          { label: "Limitations", value: "Indecisive, Unmotivated, Overly sensitive, Stubborn, Unproductive, Overwhelmed, Submissive, Uninvolved, quiet, shy, keeps emotions hidden, Indifferent at times" },
-          { label: "Focus on", value: "Facts of Relationship. Practicalness, analytic, one thing at a time" },
-          { label: "Adept at", value: "Meeting daily concerns of people" },
-          { label: "Abilities to", value: "Collaborate and Mediate" },
-          { label: "Communication\nTells= Direct\nAsks= Indirect", value: "Indirect, Empathetic, With clarity, Calm and collected, Hesitant to speak up" },
-          { label: "Likes environment to be\nIdeal circumstances", value: "Friendly, Casual, Open door policy, likes to work alone, challenging, harmonized, peac and quiet\nOpportunity to work w/ detail, challenges, people making decisions on his behalf" },
-          { label: "Pluses about any job", value: "The Involvement, Relationships" },
-          { label: "Decisions are", value: "Consultative- Heart" },
-          { label: "Motto", value: '"Peace at any price"-- "Don\'t make waves"' },
-          { label: "Fears", value: "Major life change, major personal problems, overwhelming life circumstances being handled alone" },
-          { label: "Stressors", value: "Fast pace, disharmony, conflict, instability, people that puts pressure on you or expects too much." },
-          { label: "When stressed", value: "Avoids-Isolates, 'veges-out', denies, is lazy, beomces a couch potato, distraction from problem- TV, Books, Sleep, Manual activities, knitting, crafts, quits when things get rough" },
-          { label: "Incompatible People", value: "Controlling, pushy, loud, domineering, demanding" },
-          { label: "Compatible people", value: "Collaborative and supportive, Helmpates in decisions, respect them for who they are, not what they do." },
-          { label: "Good at", value: "Keeping the peace, showing compassion, staying calm, listening, finding balance, friendships," },
-          { label: "Negatives", value: "Slow by nature, an opportunist, indifferent by others, discourages people around, takes life too easy, selfish, too cautious, no goals or vision, doesn't change easily, indecisive, unconcerned for others, lacks self-motivation, avoids responsibility, compromising, timid, reluctant (II Tim. 1:7), duty-bound, boring, plain, very private, impatient, easily offended, extremely critical/self, passive, hides weakness" },
-          { label: "Why do we need you?", value: "Excellent cooperation, calming influence on others, peace keeper" },
-          { label: "Why do I need others?", value: "To see the bigger picture, to get ideas, to work with others better, to give more structure" },
-          { label: "Growth areas?", value: "Working faster, own problem solutions, consider the needs of others, show more emotions, objective setting, motivation" },
-        ],
-      },
-      producerRed: {
-        title: "PRODUCER (Red) - The Choleric",
-        content: [
-          { label: "Temperament", value: "The Active, Driven, Practical One" },
-          { label: "Main scripture", value: "EPH. 5:8" },
-          { label: "Rose Tree/ The Strategic Esther", value: '"Let\'s Do it my Way"' },
-          { label: "Personality Type", value: "Producer. Dominance. Extrovert by nature. Understands definite purpose in life (Jn 17:3), Direct, Dynamic, Decisive, Goal setter, Adventuresome, Calculated risk taker." },
-          { label: "Roles", value: "Leader. Visionary (1 Cor. 3:11-15)" },
-          { label: "Motives", value: "Power and results. Strong stamina and drive" },
-          { label: "Needs", value: "Approval, Respect, to be right" },
-          { label: "Wants", value: "Control, Leadership" },
-          { label: "Strengths", value: "Decisive, Doer, Confident, Competent Driven, Vision, Influential, Confident, Bold, Strong will power, clear, strong in emergencies, keen perception, grasps situation quickly, not daunted by circumstances, organizes well," },
-          { label: "Limitations", value: "Domineering, Selfish, Insensitive, Manipulative, Arrogant, Nosy, Not always on time, Easily bored, Egocentric, Impatient, Sarcastic" },
-          { label: "Focus On", value: "Possibilities and Tasks. Sees what needs to be done & does it (Acts 20:24)" },
-          { label: "Adept at", value: "Developing concepts. productive, assertive" },
-          { label: "Abilities to", value: "Accomplish and Achieve, stir others into action, take chances," },
-          { label: "Communication\nTells= Direct\nAsks= Indirect", value: "Direct, Authoritative, Logical, Bottom Line, Unemotional" },
-          { label: "Likes environment to be\nIdeal circumstances", value: "Efficient, Effective, Productive, Dangerous, Constructive, continual stimulation, no supervision/control, opportunities, acknowledgement, pressure and fast tempo" },
-          { label: "Pluses about any job", value: "Accomplishing the task, Winning, Self-determination (Eph. 1:17)" },
-          { label: "Decisions are", value: "Decisive-Head" },
-          { label: "Motto", value: "Time is money-- I Want it Done Right the First Time" },
-          { label: "Fears", value: "Loss of control, Being seen as wrong or incompetent, Loss of respect" },
-          { label: "Stressors", value: "Incompetent people, Out of control situations, Not producing enough, when things are not done as you said, disloyal people" },
-          { label: "When stressed", value: "Verbal aggressive, Domineering, Manipulative, Assertive, Blunt, Pushes harder for production, take more control, eliminates perpetrator" },
-          { label: "Incompatible people", value: "Lazy, Non-productive, Ineffective, Incompetents, Weak" },
-          { label: "Compatible people", value: "Other performers, Make it happen people, Self-assured, Competent, submissive colleagues" },
-          { label: "Good at", value: "Vision, Strategies, Making things happen, Getting things done, being future oriented, creative talking and writing, simultaneous attention on projects, having an enthusiasm and energy where others value, accepting change," },
-          { label: "Negative", value: "Born with rebellious spirit, Tactless (Eph 4:2-3), Bossy, Domineering, Demanding, Insensitive to others feelings and needs, Uses others for own purposes, intolerance of mistakes, wants to be IN CHARGE and unable to follow well (Ps 43: 3-4), Has to make all the decisions, Hars and rash, unsympathetic (Eph 4:29), too independent, hates emotionalism, revengeful (Heb 12:15), end justifies the mean, self-confident b/c he always achieves his plan, stubborn & unyielding, has hard time admitting he's wrong, hot-tempered, narrow in viewpoint, proud, pushy, outspoken, forceful, impatient" },
-          { label: "Why do we need you?", value: "Can function under pressure, fast actions, achieve more than the ordinary person, natural leader" },
-          { label: "Why do I need others?", value: "To focus on details, to provide structure, to sell their ideas to others, finish tasks, learn to delegate" },
-          { label: "Growth areas", value: "Be more flexible, self-discipline, show more emotion, communicate thoughts, be more tactful." },
-        ],
-      },
-      promoterYellow: {
-        title: "PROMOTER (Yellow) - The Sanguine",
-        content: [
-          { label: "Temperament", value: "The Actor/Talker/The Enjoyer" },
-          { label: "Main Scripture", value: "1 Cor. 9:27" },
-          { label: "The Palm Tree- The passionate Maria", value: '"Let\'s do it the fun way!"' },
-          { label: "What people say", value: "You are the soul of the party! Nothing gets you down, can you please think before you do?" },
-          { label: "Personality Type", value: "Promoter, Influencer, Extrovert by nature, Optimistic" },
-          { label: "Roles", value: "Motivator" },
-          { label: "Motives", value: "Have fun, encourage people" },
-          { label: "Needs", value: "Attention, Applause, Recognitions" },
-          { label: "Wants", value: "Relationships, Freedom" },
-          { label: "Strengths", value: "Brainstorms, Encourages, Enthusiastic, Charismatic, Creative, Articulate, Direct but naive, bubbly, joyful, funny and entertaining, chatty, very animated, lively, contagious and refreshing, sociable, changes easily and quickly, high emotions from up to down, tender, sympathetic, keeps the attention of the crown, makes friends easily, vivacious and expressive, loud fabulous laugh, cute, simple-hearted, excellent speaker, easily elated, can sense when the atmosphere changes, emotional in talking and writing, likes personal experiences, shows love easily, shows empathy, diplomatic, very loyal" },
-          { label: "Limitations", value: "Disorganized, Careless, Impulsive, Unrealistic, Obnoxious" },
-          { label: "Focus on", value: "Possibilities and relationships" },
-          { label: "Adept at", value: "Understanding the aspirations of people" },
-          { label: "Abilities to", value: "Recruit and enlist, party plan" },
-          { label: "Communication\nTells= Direct, Asks= Indirect", value: "Direct, Energetic, Enthusiastic, Tells stories, Loud, Interrupts" },
-          { label: "Likes environment to be\nIdeal circumstances", value: "Stimulating, Fast-paced, Congenial, varied\ncontinues contact w/ groups, feels safe when emotions can be shown, personal examples are used, colleagues accept, being acknowledged" },
-          { label: "Pluses about any job", value: "The start, the challenge, working in a group" },
-          { label: "Decisions are", value: "Spontaneous- from the Heart, Daring" },
-          { label: "Motto", value: '"Live, Laugh, Love"-- "Close Enough"' },
-          { label: "Fears", value: "Being bored, left out, unpopular, structure, criticism" },
-          { label: "Stressors", value: "Rigid situations, not enough stimulation, too structured and too serious" },
-          { label: "When stressed", value: "Talks loud, obnoxious, impulsive, does shocking attention-getting things, shopping, having fun, uses defense mechanisms, blames others, gives up, keeps distance" },
-          { label: "Incompatible people", value: "Uptight, non-flexible, serious, boring and narrow-minded, the melancholic," },
-          { label: "Compatible people", value: "Possibilities oriented, people oriented, having heart, enjoying life" },
-          { label: "Good at", value: "Recruiting, enlisting, innovation, relationships, selling, encouraging others, inspiring others" },
-          { label: "Negative", value: "inconsistent, whimsical, unreliable, forgets promises and obligations, unstable, undisciplined, self-indulgent, exaggerates, needs discipline to live in the present, easily distracted-restless, shallow, craves enjoyment, doesn't translate experience into action, easily molded by environment, feelings based on circumstance, usually late/forgetful, interrupts, unpredictable, messy/too busy, easily emotional, avoids conflict, always tries to keep others happy in spite of self, overreacts" },
-          { label: "Why do we need you?", value: "Your creativity and hospitality, optimism and positive attitude" },
-          { label: "Why do I need others?", value: "Initiative and innovative, to concentrate more on the task, talk less, to be organized, to be more punctual" },
-          { label: "Growth areas", value: "Be less sensitive, focus more on the task, be more self-controlled, prioritize" },
-        ],
-      },
-      personalitySummary: {
-        title: "Personality Type Summary",
-        table: [
-          { header: "TYPE in the work environment", promoter: "PROMOTER Yellow", planner: "PLANNER Blue", producer: "PRODUCER Red", peacekeeper: "PEACEKEEPER Green" },
-          { header: "ROLES:", promoter: "Motivator", planner: "Problem-solver", producer: "Leader", peacekeeper: "Diplomat" },
-          { header: "MOTIVES:", promoter: "Fun and encouragement of", planner: "Belonging and contributing", producer: "Power and results", peacekeeper: "Peace and balance" },
-          { header: "NEEDS:", promoter: "Attention Applause Recognition", planner: "Appreciation Acceptance Order", producer: "Approval Respect To be right", peacekeeper: "Acceptance Respect Independence" },
-          { header: "WANTS:", promoter: "Relationships Freedom", planner: "Accuracy Security", producer: "Control Leadership", peacekeeper: "Stability Contentment" },
-          { header: "STRENGTHS:", promoter: "Brainstormer Encourager Enthusiastic Charismatic Creative Articulate Optimistic", planner: "Integrity Organizer Sincere Reliable Practical Thoughtful Loyal", producer: "Decisive Doer Confident Competent Driven Vision Influential", peacekeeper: "Clarity Listener Diplomatic Kind Patient Moderate Adaptable" },
-          { label: "LIMITATIONS:", promoter: "Disorganized Cardless Impulsive Unrealistic Obnoxious", planner: "Self-righteous Perfectionist Worrier Moody Critical", producer: "Domineering Selfish Insensitive Manipulative Arrogant", peacekeeper: "Indecisive Unmotivated Methodical Stubborn Overwhelmed" },
-          { header: "FOCUS ON:", promoter: "Possibilities and relationships", planner: "Facts, tasks and quality", producer: "Possibilities and tasks", peacekeeper: "Facts and relationships" },
-          { header: "ADEPT AT:", promoter: "Understanding the aspirations of people", planner: "Applying facts and experience", producer: "Developing concepts", peacekeeper: "Meeting daily concerns of people" },
-          { header: "ABILITIES TO:", promoter: "Recruit and enlist", planner: "Plan and problem-solve", producer: "Accomplish and achieve", peacekeeper: "Collaborate and mediate" },
-          { header: "COMMUNICATION:\nTells = Direct\nAsks = Indirect", promoter: "Direct Energetic Enthusiastic Loud Interrupts", planner: "Indirect Detailed Factual Orderly messages Prefers written", producer: "Direct Authoritative Logical Bottom line Unemotional", peacekeeper: "Indirect Empathetic With clarity Calm and collected Hesitant to speak up" },
-          { header: "LIKES OFFICE TO BE:", promoter: "Stimulating Fast paced Congenial", planner: "Organized Functional Business like", producer: "Efficient Effective Productive", peacekeeper: "Friendly Casual Open door policy" },
-          { header: "PLUSES ABOUT THE JOB:", promoter: "The start Challenge", planner: "The process Developing systems", producer: "The completion Winning", peacekeeper: "The involvement Relationships" },
-          { header: "DECISIONS ARE:", promoter: "Spontaneous Heart", planner: "Calculated Head", producer: "Decisive Head", peacekeeper: "Consultative Heart" },
-          { header: "NAMES OTHERS USE FOR THEM:", promoter: "Scatteriffic Space Cadet Air Head Adorable Flake", planner: "Anal Retentive Gloom and Doom Nit-picky Negative", producer: "Ruthless Attila the Hun Hitler Verbal Machine Gun", peacekeeper: "Ignored Mute Softie Bleeding Hearts" },
-        ],
-      },
-    };
+  // page footers
+  const totalPages = doc.internal.getNumberOfPages();
+  for (let i=1; i<=totalPages; i++) {
+    doc.setPage(i);
+    doc.setFont('helvetica','normal'); doc.setFontSize(6.5); tclr([180,180,205]);
+    doc.text(`Color Personality Test  ·  ${displayName}  ·  Page ${i} of ${totalPages}`, pw/2, ph-7, {align:'center'});
+  }
 
-    function Question({ question, rankings, setRankings }) {
-      const handleRankChange = (color, value) => {
-        const newRankings = { ...rankings };
-        const currentQuestion = newRankings[question.id] || {};
+  doc.save(`color-personality-${(name||'anonymous').toLowerCase().replace(/\s+/g,'-')}.pdf`);
+}
 
-        const colorWithValue = Object.keys(currentQuestion).find(
-          key => currentQuestion[key] === parseInt(value) && key !== color
-        );
+// ─────────────── Welcome Page ──────────────────────────────────────────────
+function WelcomePage({ onStart }) {
+  return (
+    <div className="page-welcome">
+      <div className="orb orb-y"/><div className="orb orb-b"/>
+      <div className="orb orb-r"/><div className="orb orb-g"/>
+      <div className="welcome-wrap">
+        <div className="chip">
+          <span className="chip-dot" style={{background:'#f59e0b'}}/>
+          Personality Assessment
+        </div>
+        <h1 className="welcome-title">
+          <span className="grad-text">Color</span><br/>
+          Personality<br/>
+          Test
+        </h1>
+        <p className="welcome-sub">
+          Discover your unique personality type through<br/>
+          20 carefully crafted questions
+        </p>
+        <div className="four-dots">
+          {Object.values(CM).map(m=>(
+            <span key={m.label} style={{background:m.hex}}/>
+          ))}
+        </div>
+        <button className="btn-white" onClick={onStart}>
+          Begin Journey
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
 
-        if (colorWithValue) {
-          delete currentQuestion[colorWithValue];
-        }
+// ─────────────── Name Page ─────────────────────────────────────────────────
+function NamePage({ onContinue }) {
+  const [name, setName] = useState('');
+  return (
+    <div className="page-name">
+      <div className="name-card">
+        <div className="color-bar-row">
+          {Object.values(CM).map(m=><div key={m.label} style={{background:m.hex}}/>)}
+        </div>
+        <h2>What's your name?</h2>
+        <p>We'll use it to personalize your results and PDF report.</p>
+        <input
+          className="input-field"
+          type="text"
+          placeholder="Your name..."
+          value={name}
+          onChange={e=>setName(e.target.value)}
+          onKeyDown={e=>e.key==='Enter'&&onContinue(name)}
+          autoFocus
+        />
+        <button className="btn-white" style={{width:'100%',justifyContent:'center'}} onClick={()=>onContinue(name)}>
+          Start Test
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+        <button className="skip-link" onClick={()=>onContinue('')}>
+          Skip — continue anonymously
+        </button>
+      </div>
+    </div>
+  );
+}
 
-        currentQuestion[color] = parseInt(value);
-        newRankings[question.id] = currentQuestion;
-        setRankings(newRankings);
-      };
+// ─────────────── Option Card ───────────────────────────────────────────────
+function OptionCard({ color, text, rank, onSelect }) {
+  const m = CM[color];
+  return (
+    <div className="opt-card" style={rank ? {borderColor:m.hex, background:m.dim} : {}}>
+      <div className="opt-head">
+        <div className="opt-dot" style={{background:m.hex}}/>
+        <span className="opt-clr-lbl">{m.label}</span>
+        {rank && (
+          <div className="opt-rank-badge" style={{background:m.hex}}>{rank}</div>
+        )}
+      </div>
+      <div className="opt-text">{text}</div>
+      <div className="rank-row">
+        {[1,2,3,4].map(n=>(
+          <button
+            key={n}
+            className={`rank-btn ${rank===n?'on':''}`}
+            style={rank===n?{background:m.hex,borderColor:m.hex}:{}}
+            onClick={()=>onSelect(color,n)}
+          >{n}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
-      return (
-        <div className="mb-6 p-4 border rounded-lg bg-white shadow-sm">
-          <h3 className="text-lg font-semibold text-primary mb-2">Question {question.id}: {question.prompt}</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {Object.entries(question.options).map(([color, text]) => (
-              <div key={color} className="flex items-center space-x-2">
-                <label className="flex-1 text-accent">{text}</label>
-                <select
-                  className="border rounded p-1 bg-white text-accent focus:ring-2 focus:ring-primary"
-                  value={rankings[question.id]?.[color] || ""}
-                  onChange={(e) => handleRankChange(color, e.target.value)}
-                >
-                  <option value="" disabled>Select</option>
-                  {[1, 2, 3, 4].map(num => (
-                    <option key={num} value={num}>
-                      {num}
-                    </option>
-                  ))}
-                </select>
+// ─────────────── Questions Page ────────────────────────────────────────────
+function QuestionsPage({ rankings, setRankings, onSubmit }) {
+  const [cur, setCur]     = useState(0);
+  const [dir, setDir]     = useState('right');
+  const [toast, setToast] = useState(false);
+  const animKey           = `${cur}-${dir}`;
+
+  const q = questions[cur];
+  const qR = rankings[q.id] || {};
+
+  const isQDone = (id) => {
+    const r = rankings[id] || {};
+    return Object.keys(r).length===4 && new Set(Object.values(r)).size===4;
+  };
+  const doneCount = questions.filter(q=>isQDone(q.id)).length;
+  const allDone   = doneCount===questions.length;
+
+  const handleSelect = (color, rank) => {
+    const newR = { ...rankings };
+    const cur2 = { ...(newR[q.id]||{}) };
+    // remove rank from other color
+    Object.keys(cur2).forEach(c=>{ if(cur2[c]===rank && c!==color) delete cur2[c]; });
+    // toggle off
+    if(cur2[color]===rank) delete cur2[color];
+    else cur2[color]=rank;
+    newR[q.id]=cur2;
+    setRankings(newR);
+
+    const nowDone = Object.keys(cur2).length===4 && new Set(Object.values(cur2)).size===4;
+    if(nowDone && !isQDone(q.id)) {
+      setToast(true);
+      setTimeout(()=>setToast(false),1800);
+      if(cur < questions.length-1) {
+        setTimeout(()=>{ setDir('right'); setCur(c=>c+1); }, 550);
+      }
+    }
+  };
+
+  const goTo = (idx) => { setDir(idx>cur?'right':'left'); setCur(idx); };
+
+  return (
+    <div className="page-questions">
+      {toast && <div className="toast">✓ Nicely ranked!</div>}
+
+      <div className="q-header">
+        <div className="q-header-inner">
+          <div className="q-header-row">
+            <span className="q-header-title">Color Personality Test</span>
+            <span className="q-header-count">{doneCount} / {questions.length} complete</span>
+          </div>
+          <div className="prog-track">
+            <div className="prog-fill" style={{width:`${(doneCount/questions.length)*100}%`}}/>
+          </div>
+        </div>
+      </div>
+
+      <div className="q-area">
+        <div className="q-hint">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <circle cx="7.5" cy="7.5" r="6.5" stroke="currentColor" strokeWidth="1.2"/>
+            <path d="M7.5 6.5v4M7.5 4.5h.01" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+          </svg>
+          <p>Rank each option <strong>1–4</strong> based on how well it describes you. <strong>4 = most like you</strong>, 1 = least like you. Each number may only be used once per question.</p>
+        </div>
+
+        <div
+          className="q-card"
+          key={animKey}
+          style={{animation:`${dir==='right'?'slideFromRight':'slideFromLeft'} .3s ease both`}}
+        >
+          <div className="q-eyebrow">Question {q.id} of {questions.length}</div>
+          <h2 className="q-prompt">{q.prompt}</h2>
+          <div className="opts-grid">
+            {Object.entries(q.options).map(([color,text])=>(
+              <OptionCard key={color} color={color} text={text} rank={qR[color]} onSelect={handleSelect}/>
+            ))}
+          </div>
+        </div>
+
+        <div className="q-nav">
+          <button className="nav-prev" onClick={()=>goTo(cur-1)} disabled={cur===0}>
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+              <path d="M8 2.5L4 6.5L8 10.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Prev
+          </button>
+
+          <div className="dots-row">
+            {questions.map((_,i)=>{
+              const done = isQDone(questions[i].id);
+              return (
+                <div
+                  key={i}
+                  className="nav-dot"
+                  onClick={()=>goTo(i)}
+                  style={{
+                    width: i===cur ? 14 : 6,
+                    background: done ? '#34d399' : i===cur ? 'white' : 'var(--card)',
+                  }}
+                />
+              );
+            })}
+          </div>
+
+          {cur < questions.length-1 ? (
+            <button className="nav-next" onClick={()=>goTo(cur+1)}>
+              Next
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                <path d="M5 2.5L9 6.5L5 10.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+          ) : (
+            <button className="submit-btn" onClick={onSubmit} disabled={!allDone}>
+              {allDone ? 'See Results' : `${doneCount}/${questions.length} done`}
+              {allDone && (
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                  <path d="M5 2.5L9 6.5L5 10.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              )}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────── Animated Score Bar ────────────────────────────────────────
+function ScoreBar({ color, score, maxScore, delay }) {
+  const [w, setW] = useState(0);
+  useEffect(()=>{
+    const t = setTimeout(()=>setW(Math.round((score/maxScore)*100)), delay*1000+100);
+    return ()=>clearTimeout(t);
+  },[]);
+  const m = CM[color];
+  return (
+    <div className="score-row">
+      <div className="score-top">
+        <div className="score-name">
+          <div className="score-ndot" style={{background:m.hex}}/>
+          <span>{profiles[color].type}</span>
+          <span style={{color:'var(--sub)',fontSize:'.8rem'}}>({m.label})</span>
+        </div>
+        <div className="score-pts" style={{color:m.hex}}>{score} pts</div>
+      </div>
+      <div className="score-track">
+        <div className="score-fill" style={{background:m.hex, width:`${w}%`}}/>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────── Results Page ───────────────────────────────────────────────
+function ResultsPage({ rankings, userName, onRetake }) {
+  const totals = {yellow:0,blue:0,red:0,green:0};
+  Object.values(rankings).forEach(q=>{
+    Object.entries(q).forEach(([c,r])=>{ totals[c]+=r; });
+  });
+  const sorted = Object.entries(totals)
+    .map(([color,score])=>({color,score}))
+    .sort((a,b)=>b.score-a.score);
+
+  const primary = sorted[0];
+  const pm = CM[primary.color];
+  const pp = profiles[primary.color];
+
+  return (
+    <div className="page-results">
+      <div className="res-header">
+        <div className="res-badge" style={{background:pm.dim,color:pm.hex}}>
+          Your Results
+        </div>
+        <h1 className="res-title">
+          You are a<br/>
+          <span style={{color:pm.hex}}>{pp.type}</span>
+        </h1>
+        <p className="res-sub">
+          {userName ? `Great work, ${userName}!` : 'Great work!'} Here's your personality breakdown.
+        </p>
+      </div>
+
+      <div className="res-body">
+        {/* Score bars */}
+        <div className="scores-box">
+          <div className="box-eyebrow">Score Breakdown (Higher = Stronger Alignment)</div>
+          {sorted.map(({color,score},i)=>(
+            <ScoreBar key={color} color={color} score={score} maxScore={80} delay={i*.12}/>
+          ))}
+        </div>
+
+        {/* Primary type card */}
+        <div className="primary-box" style={{background:pm.dim,border:`1.5px solid ${pm.hex}30`}}>
+          <div className="prim-tag">Primary Type · {pm.label}</div>
+          <h2 className="prim-type" style={{color:pm.hex}}>{pp.type}</h2>
+          <p className="prim-tag2" style={{color:pm.hex}}>{pp.tagline}</p>
+          <p className="prim-desc">{pp.full}</p>
+          <div className="prim-grid">
+            {[
+              {label:'Strengths', val:pp.strengths},
+              {label:'Limitations', val:pp.limits},
+              {label:'Core Needs', val:pp.needs},
+              {label:'What Drives You', val:pp.wants},
+            ].map(({label,val})=>(
+              <div key={label}>
+                <div className="prim-cell-lbl" style={{color:pm.hex}}>{label}</div>
+                <div className="prim-cell-val">{val}</div>
               </div>
             ))}
           </div>
         </div>
-      );
-    }
 
-    function Results({ rankings, userName }) {
-      console.log("Rendering Results, rankings:", rankings);
-      const totals = { yellow: 0, green: 0, red: 0, blue: 0 };
-      Object.values(rankings).forEach(question => {
-        Object.entries(question).forEach(([color, rank]) => {
-          totals[color] += rank;
-        });
-      });
+        {/* All four mini cards */}
+        <div className="all-cards">
+          {sorted.map(({color},rank)=>{
+            const m=CM[color], p=profiles[color];
+            return (
+              <div key={color} className="mini-card" style={{borderTopColor:m.hex}}>
+                <div className="mini-head">
+                  <div className="mini-type">{p.type}</div>
+                  <div className="mini-rank" style={{background:m.dim,color:m.hex}}>#{rank+1}</div>
+                </div>
+                <div className="mini-clr" style={{color:m.hex}}>{m.label}</div>
+                <div className="mini-desc">{p.short}</div>
+              </div>
+            );
+          })}
+        </div>
 
-      const sortedResults = Object.entries(totals)
-        .map(([color, score]) => ({
-          color,
-          score,
-          type: personalityTypes[color].type,
-          explanation: personalityTypes[color].explanation,
-        }))
-        .sort((a, b) => b.score - a.score);
-
-      // Map color to corresponding section content
-      const sections = [
-        additionalContent[`${sortedResults[0].color}${sortedResults[0].type}`],
-        additionalContent[`${sortedResults[1].color}${sortedResults[1].type}`],
-        additionalContent[`${sortedResults[2].color}${sortedResults[2].type}`],
-        additionalContent[`${sortedResults[3].color}${sortedResults[3].type}`]
-      ];
-
-      const handleDownloadPDF = () => {
-            console.log("Download button clicked, generating PDF...");
-            try {
-              const doc = new jsPDF();
-              let yPosition = 20; // Initial vertical position
-
-              const addNewPage = () => {
-                doc.addPage();
-                yPosition = 20; // Reset vertical position for the new page
-              };
-
-              const checkPageHeight = (additionalHeight) => {
-                if (yPosition + additionalHeight > 270) { // Increased margin at bottom
-                  addNewPage();
-                }
-              };
-
-              // Add user's name
-              doc.setFontSize(14);
-              doc.setTextColor(30, 58, 138);
-              doc.text(`Results for: ${userName || "Anonymous"}`, 20, yPosition);
-              yPosition += 15;
-
-              // Add title
-              doc.setFontSize(16);
-              doc.text("Color Personality Test Results", 20, yPosition);
-              yPosition += 15;
-
-              // Add score totals
-              doc.setFontSize(12);
-              doc.setTextColor(107, 114, 128);
-              doc.text("Score Totals (Higher Scores Indicate Stronger Alignment)", 20, yPosition);
-              yPosition += 10;
-
-              sortedResults.forEach(({ color, score }) => {
-                checkPageHeight(8);
-                doc.setFontSize(10);
-                doc.text(`${color.charAt(0).toUpperCase() + color.slice(1)}: ${score} points`, 20, yPosition);
-                yPosition += 8;
-              });
-
-              // Add personality types and explanations
-              addNewPage();
-              doc.setFontSize(12);
-              doc.text("Personality Types and Explanations", 20, yPosition);
-              yPosition += 10;
-
-              sortedResults.forEach(({ color, type, explanation }) => {
-                checkPageHeight(12);
-                doc.setFontSize(11);
-                doc.setTextColor(0, 0, 0);
-                doc.text(`${color.charAt(0).toUpperCase()} - ${type}`, 20, yPosition);
-                yPosition += 8;
-
-                doc.setFontSize(9);
-                const cleanExplanation = explanation.replace(/<strong>|<\/strong>/g, '');
-                const splitText = doc.splitTextToSize(cleanExplanation.trim(), 170);
-                splitText.forEach(line => {
-                  checkPageHeight(5);
-                  doc.text(line, 20, yPosition);
-                  yPosition += 5;
-                });
-                yPosition += 8;
-              });
-
-              // Function to draw table cell with auto-wrapping text
-              const drawTableCell = (text, x, y, width, lineHeight = 5) => {
-                const lines = doc.splitTextToSize(text, width - 4);
-                let currentY = y + 4;
-                lines.forEach(line => {
-                  doc.text(line, x + 2, currentY);
-                  currentY += lineHeight;
-                });
-                return lines.length * lineHeight;
-              };
-
-              // Function to draw table borders
-              const drawTableBorders = (x, y, width, height) => {
-                doc.setDrawColor(128, 128, 128);
-                doc.setLineWidth(0.1);
-                // Draw outer borders
-                doc.rect(x, y, width, height);
-              };
-
-              // Add sections with improved table formatting
-              sections.forEach(section => {
-                addNewPage();
-                doc.setFontSize(14);
-                doc.setTextColor(30, 58, 138);
-                doc.text(section.title, 20, yPosition);
-                yPosition += 10;
-
-                doc.setFontSize(9);
-                doc.setTextColor(0, 0, 0);
-
-                // Table configuration
-                const tableStartX = 20;
-                const labelWidth = 60;
-                const valueWidth = 130;
-                const tableWidth = labelWidth + valueWidth;
-                const cellPadding = 4;
-                
-                section.content.forEach(item => {
-                  checkPageHeight(10);
-                  const startY = yPosition;
-
-                  // Draw label cell
-                  const labelHeight = drawTableCell(item.label, tableStartX, startY, labelWidth);
-                  
-                  // Draw value cell
-                  const valueHeight = drawTableCell(item.value, tableStartX + labelWidth, startY, valueWidth);
-                  
-                  // Use the taller height for the row
-                  const rowHeight = Math.max(labelHeight, valueHeight) + cellPadding * 2;
-                  
-                  // Draw cell borders
-                  drawTableBorders(tableStartX, startY, labelWidth, rowHeight);
-                  drawTableBorders(tableStartX + labelWidth, startY, valueWidth, rowHeight);
-                  
-                  yPosition = startY + rowHeight + 2;
-                });
-
-                yPosition += 5;
-              });
-
-              // Add personality summary table with improved formatting
-              addNewPage();
-              doc.setFontSize(14);
-              doc.setTextColor(30, 58, 138);
-              doc.text(additionalContent.personalitySummary.title, 20, yPosition);
-              yPosition += 10;
-
-              doc.setFontSize(9);
-              doc.setTextColor(0, 0, 0);
-
-              // Summary table configuration
-              const summaryTableConfig = {
-                startX: 20,
-                columnWidths: [40, 35, 35, 35, 35],
-                rowHeight: 8,
-                cellPadding: 2
-              };
-
-              additionalContent.personalitySummary.table.forEach(row => {
-                checkPageHeight(15);
-                const startY = yPosition;
-                let maxHeight = 0;
-
-                // Calculate maximum height needed for this row
-                const allTexts = [
-                  row.header,
-                  row.promoter,
-                  row.planner,
-                  row.producer,
-                  row.peacekeeper
-                ];
-
-                let currentX = summaryTableConfig.startX;
-                allTexts.forEach((text, index) => {
-                  const lines = doc.splitTextToSize(text, summaryTableConfig.columnWidths[index] - 4);
-                  const cellHeight = lines.length * summaryTableConfig.rowHeight;
-                  maxHeight = Math.max(maxHeight, cellHeight);
-
-                  // Draw cell content
-                  let currentY = startY + summaryTableConfig.cellPadding;
-                  lines.forEach(line => {
-                    doc.text(line, currentX + 2, currentY);
-                    currentY += summaryTableConfig.rowHeight;
-                  });
-
-                  // Draw cell borders
-                  drawTableBorders(
-                    currentX,
-                    startY,
-                    summaryTableConfig.columnWidths[index],
-                    maxHeight + summaryTableConfig.cellPadding * 2
-                  );
-
-                  currentX += summaryTableConfig.columnWidths[index];
-                });
-
-                yPosition = startY + maxHeight + summaryTableConfig.cellPadding * 2 + 2;
-              });
-
-              // Save the PDF
-              doc.save(`personality_test_results_${userName || "anonymous"}.pdf`);
-              console.log("PDF generated and download initiated.");
-            } catch (error) {
-              console.error("Error generating PDF:", error);
-            }
-          };
-
-      return (
-        <div className="mt-8 p-6 border rounded-lg bg-white shadow-sm">
-          <h2 className="text-2xl font-bold text-primary mb-4">Your Personality Results</h2>
-          <h3 className="text-xl font-semibold text-accent mb-4">Score Totals (Higher Scores Indicate Stronger Alignment)</h3>
-          <ul className="space-y-2 mb-6">
-            {sortedResults.map(({ color, score }) => (
-              <li key={color} className="flex items-center space-x-2">
-                <span className={`w-4 h-4 rounded-full bg-${color}-500`}></span>
-                <span className="capitalize text-accent font-medium">{color}: {score} points</span>
-              </li>
-            ))}
-          </ul>
-          <h3 className="text-xl font-semibold text-accent mb-4">Personality Types and Explanations</h3>
-          {sortedResults.map(({ color, type, explanation }) => (
-            <div key={color} className="mb-6 p-4 bg-secondary rounded-lg" dangerouslySetInnerHTML={{ __html: explanation }} />
-          ))}
-          <button
-            onClick={() => handleDownloadPDF(userName)}
-            className="mt-4 px-4 py-2 bg-primary text-white rounded hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            Download Results as PDF
+        {/* Download */}
+        <div className="dl-section">
+          <button className="btn-dl" onClick={()=>generatePDF(userName, sorted)}>
+            <svg width="17" height="17" viewBox="0 0 17 17" fill="none">
+              <path d="M8.5 2v9M8.5 11L5 7.5M8.5 11L12 7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M3 14h11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            Download Full PDF Report
+          </button>
+          <br/>
+          <button className="btn-retake" onClick={onRetake}>
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+              <path d="M2 6.5C2 4.01 4.01 2 6.5 2C8.99 2 11 4.01 11 6.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+              <path d="M2 6.5L3.8 4.7M2 6.5L3.8 8.3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Retake Test
           </button>
         </div>
-      );
-    }
+      </div>
+    </div>
+  );
+}
 
-    function App() {
-      console.log("App rendering...");
-      const [page, setPage] = useState(1);
-      const [rankings, setRankings] = useState({});
-      const [error, setError] = useState(null);
-      const [userName, setUserName] = useState("");
+// ─────────────── App Shell ─────────────────────────────────────────────────
+function App() {
+  const [page, setPage]         = useState('welcome');
+  const [rankings, setRankings] = useState({});
+  const [userName, setUserName] = useState('');
 
-      const allQuestionsAnswered = Object.keys(rankings).length === questions.length &&
-        questions.every(q => Object.keys(rankings[q.id] || {}).length === 4);
-      console.log("allQuestionsAnswered:", allQuestionsAnswered, "rankings:", rankings);
+  return (
+    <>
+      {page==='welcome'   && <WelcomePage onStart={()=>setPage('name')}/>}
+      {page==='name'      && <NamePage onContinue={n=>{ setUserName(n); setPage('questions'); }}/>}
+      {page==='questions' && (
+        <QuestionsPage
+          rankings={rankings}
+          setRankings={setRankings}
+          onSubmit={()=>setPage('results')}
+        />
+      )}
+      {page==='results'   && (
+        <ResultsPage
+          rankings={rankings}
+          userName={userName}
+          onRetake={()=>{ setRankings({}); setPage('welcome'); }}
+        />
+      )}
+    </>
+  );
+}
 
-      useEffect(() => {
-        console.log("App mounted, rankings:", rankings);
-      }, [rankings]);
-
-      if (error) {
-        return (
-          <div className="min-h-screen flex items-center justify-center p-4">
-            <div className="max-w-3xl w-full bg-white shadow-lg rounded-lg p-6 text-red-500">
-              <h1>Error: {error}</h1>
-            </div>
-          </div>
-        );
-      }
-
-      return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-4">
-          <div className="max-w-4xl w-full content-container shadow-lg rounded-lg p-8">
-            {page === 1 && (
-              <div className="text-center">
-                <h1 className="text-5xl font-bold mb-6 swirl-text">Color Personality Test</h1>
-                <p className="text-accent mb-6">Take this test to discover your personality type!</p>
-                <button
-                  onClick={() => setPage(2)}
-                  className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-primary transition duration-200"
-                >
-                  Start
-                </button>
-              </div>
-            )}
-            {page === 2 && (
-              <>
-                <div className="mb-8 p-4 border rounded-lg bg-white shadow-sm">
-                  <h2 className="text-xl font-semibold text-primary mb-2">Enter Your Name</h2>
-                  <input
-                    type="text"
-                    value={userName}
-                    onChange={(e) => setUserName(e.target.value)}
-                    placeholder="Enter your name"
-                    className="w-full p-2 border rounded mb-4 text-accent focus:ring-2 focus:ring-primary"
-                  />
-                  <p className="text-accent">Please enter your name to personalize your results. If left blank, "Anonymous" will be used.</p>
-                </div>
-                <div className="mb-8">
-                  <h2 className="text-xl font-semibold text-primary mb-2">Instructions</h2>
-                  <p className="text-accent">
-                    For each of the questions below, rank the four options from 1 to 4 based on how well they describe you:
-                    <ul className="list-disc ml-6 mt-2">
-                      <li><strong>4</strong>: Most like you</li>
-                      <li><strong>3</strong>: Next most like you</li>
-                      <li><strong>2</strong>: Next most like you</li>
-                      <li><strong>1</strong>: Least like you</li>
-                    </ul>
-                    Each number (1, 2, 3, 4) can only be used once per question. After completing all questions, your results will show your personality type scores (Yellow, Green, Red, Blue) in ranked order, along with their corresponding personality types and detailed explanations.
-                  </p>
-                </div>
-                <div className="mb-8 p-4 bg-secondary rounded-lg">
-                  <h2 className="text-xl font-semibold text-primary mb-2">Example</h2>
-                  <p className="text-accent mb-2">For the question "I am:", you might rank the options as follows:</p>
-                  <p className="text-accent">
-                    DRAMATIC: <span className="font-bold text-yellow-500">3</span>, 
-                    PRECISE: <span className="font-bold text-green-500">1</span>, 
-                    POWERFUL: <span className="font-bold text-red-500">4</span>, 
-                    ACCOMMODATING: <span className="font-bold text-blue-500">2</span>
-                  </p>
-                </div>
-                {questions.map(question => (
-                  <Question
-                    key={question.id}
-                    question={question}
-                    rankings={rankings}
-                    setRankings={setRankings}
-                  />
-                ))}
-                {allQuestionsAnswered && (
-                  <div className="text-center mt-8">
-                    <button
-                      onClick={() => setPage(3)}
-                      className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-primary transition duration-200"
-                    >
-                      Submit
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
-            {page === 3 && (
-              <ErrorBoundary>
-                <Results rankings={rankings} userName={userName} />
-              </ErrorBoundary>
-            )}
-          </div>
-        </div>
-      );
-    }
-
-    try {
-      console.log("Attempting to render React app...");
-      const rootElement = document.getElementById('root');
-      if (!rootElement) {
-        console.error("Root element not found!");
-        document.body.innerHTML = '<div class="text-red-500 p-4 text-center">Error: Root element not found. Please check the HTML structure.</div>';
-      } else {
-        const root = ReactDOM.createRoot(rootElement);
-        root.render(
-          <ErrorBoundary>
-            <App />
-          </ErrorBoundary>
-        );
-        console.log("React app rendered successfully");
-      }
-    } catch (e) {
-      console.error("Error rendering React app:", e);
-      document.body.innerHTML = '<div class="text-red-500 p-4 text-center">Error rendering app: ' + e.message + '. Please check the console (F12) for details.</div>';
-    }
-  </script>
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
 </body>
 </html>
