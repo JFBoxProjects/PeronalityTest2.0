@@ -40,10 +40,11 @@
     .orb-b { width:360px; height:360px; background:var(--b); bottom:-8%; right:-6%; animation:orb2 11s ease-in-out infinite; }
     .orb-r { width:300px; height:300px; background:var(--r); top:42%; right:22%; animation:orb3 13s ease-in-out infinite; }
     .orb-g { width:260px; height:260px; background:var(--g); bottom:22%; left:12%; animation:orb1 10s ease-in-out infinite reverse; }
-    .welcome-wrap { position:relative; z-index:1; text-align:center; max-width:580px; animation:fadeUp 0.9s ease both; }
+    .welcome-wrap { position:relative; z-index:1; text-align:center; width:100%; max-width:720px; animation:fadeUp 0.9s ease both; }
     .chip { display:inline-flex; align-items:center; gap:7px; padding:5px 14px; background:var(--card); border:1px solid var(--border); border-radius:100px; font-size:0.72rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--sub); margin-bottom:1.6rem; }
     .chip-dot { width:6px; height:6px; border-radius:50%; animation:pulse 2.2s ease-in-out infinite; }
-    .welcome-title { font-size:clamp(3rem,9vw,5.5rem); font-weight:800; line-height:1.02; margin-bottom:1rem; letter-spacing:-0.025em; }
+    .welcome-title { font-size:clamp(2.4rem,8vw,5.5rem); font-weight:800; line-height:1.02; margin-bottom:1rem; letter-spacing:-0.025em; text-align:center; width:100%; overflow-wrap:break-word; }
+    @media(max-width:480px){ .welcome-title { font-size:clamp(2rem,11vw,3.2rem); letter-spacing:-0.01em; } }
     .grad-text { background:linear-gradient(135deg,var(--y) 0%,var(--r) 38%,var(--b) 68%,var(--g) 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
     .welcome-sub { color:var(--sub); font-size:1.05rem; font-weight:300; margin-bottom:2.5rem; line-height:1.65; }
     .four-dots { display:flex; gap:9px; justify-content:center; margin-bottom:2.2rem; }
@@ -98,8 +99,9 @@
     .opt-text { font-size:1rem; font-weight:500; margin-bottom:1.1rem; margin-top:.15rem; line-height:1.4; }
 
     /* ── Instructions page ───────────────────────────── */
-    .page-instructions { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:2rem; }
-    .instr-card { background:var(--surface); border:1px solid var(--border); border-radius:24px; padding:2.8rem; max-width:580px; width:100%; animation:scaleIn .4s ease both; }
+    .page-instructions { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:2rem 1rem; }
+    .instr-card { background:var(--surface); border:1px solid var(--border); border-radius:24px; padding:2.8rem 2rem; max-width:580px; width:100%; animation:scaleIn .4s ease both; }
+    @media(max-width:480px){ .instr-card { padding:1.8rem 1.2rem; border-radius:18px; } }
     .instr-card h2 { font-size:1.9rem; font-weight:800; margin-bottom:.35rem; }
     .instr-card > p { color:var(--sub); font-size:.92rem; margin-bottom:1.8rem; line-height:1.55; }
     .instr-ranks { display:flex; flex-direction:column; gap:.55rem; margin-bottom:1.6rem; }
@@ -111,7 +113,8 @@
     .instr-example-label { font-size:.65rem; letter-spacing:.12em; text-transform:uppercase; color:var(--sub); margin-bottom:.75rem; }
     .instr-example-prompt { font-size:.82rem; color:var(--sub); margin-bottom:.9rem; }
     .instr-example-grid { display:grid; grid-template-columns:1fr 1fr; gap:.6rem; }
-    .instr-ex-item { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:.7rem .9rem; }
+    @media(max-width:480px){ .instr-example-grid { grid-template-columns:1fr; } }
+    .instr-ex-item { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:.7rem .9rem; min-width:0; }
     .instr-ex-word { font-size:.88rem; font-weight:600; color:var(--text); margin-bottom:.4rem; }
     .instr-ex-badge { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; font-family:'Syne',sans-serif; font-size:.75rem; font-weight:700; color:#0d0d1a; }
     .instr-note { font-size:.78rem; color:var(--sub); line-height:1.55; margin-bottom:1.8rem; padding:.7rem .9rem; border-left:2px solid var(--border); }
@@ -471,13 +474,11 @@ function generatePDF(name, sorted) {
   doc.setFont('helvetica','bold'); doc.setFontSize(7); tclr([150,150,175]);
   doc.text('YOUR PRIMARY PERSONALITY TYPE', ML, y); y+=8;
 
-  // accent bar + description — indent 8mm from margin, text stays within right margin
-  const descIndent = ML + 8;
-  const descW = pw - descIndent - MR;
+  // accent bar + description — text spans full TW so it never clips the right edge
   fill(pC); doc.rect(ML,y,3,25,'F');
-  const descLines = wrap(profiles[primary.color].full, descW);
+  const descLines = wrap(profiles[primary.color].full, TW - 6);
   doc.setFont('helvetica','normal'); doc.setFontSize(9); tclr([35,35,60]);
-  doc.text(descLines.slice(0,5), descIndent, y+5);
+  doc.text(descLines.slice(0,6), ML + 6, y+5);
   y += 32;
 
   // trait boxes
@@ -970,27 +971,6 @@ function ResultsPage({ rankings, userName, onRetake }) {
               <path d="M3 14h11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
             </svg>
             Download Full PDF Report
-          </button>
-          <br/>
-          <button
-            onClick={()=>downloadRealYou()}
-            style={{
-              display:'inline-flex', alignItems:'center', gap:'10px',
-              padding:'14px 32px', background:'transparent',
-              color:'var(--sub)', border:'1px solid var(--border)',
-              borderRadius:'100px', fontFamily:"'Syne',sans-serif",
-              fontWeight:'600', fontSize:'1rem', cursor:'pointer',
-              textDecoration:'none', marginTop:'0.8rem',
-              transition:'all .2s',
-            }}
-            onMouseEnter={e=>{e.currentTarget.style.color='var(--text)';e.currentTarget.style.borderColor='rgba(255,255,255,.25)';}}
-            onMouseLeave={e=>{e.currentTarget.style.color='var(--sub)';e.currentTarget.style.borderColor='var(--border)';}}
-          >
-            <svg width="17" height="17" viewBox="0 0 17 17" fill="none">
-              <path d="M8.5 2v9M8.5 11L5 7.5M8.5 11L12 7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M3 14h11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-            Download "The Real You" Book
           </button>
           <br/>
           <button className="btn-retake" onClick={onRetake}>
