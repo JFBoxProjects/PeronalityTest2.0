@@ -43,7 +43,7 @@
     .welcome-wrap { position:relative; z-index:1; text-align:center; width:100%; max-width:720px; animation:fadeUp 0.9s ease both; }
     .chip { display:inline-flex; align-items:center; gap:7px; padding:5px 14px; background:var(--card); border:1px solid var(--border); border-radius:100px; font-size:0.72rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--sub); margin-bottom:1.6rem; }
     .chip-dot { width:6px; height:6px; border-radius:50%; animation:pulse 2.2s ease-in-out infinite; }
-    .welcome-title { font-size:clamp(2.4rem,8vw,5.5rem); font-weight:800; line-height:1.02; margin-bottom:1rem; letter-spacing:-0.025em; text-align:center; width:100%; overflow-wrap:break-word; }
+    .welcome-title { font-size:clamp(2.4rem,8vw,5.5rem); font-weight:800; line-height:1.02; margin-bottom:1rem; letter-spacing:-0.025em; text-align:center; width:100%; }
     @media(max-width:480px){ .welcome-title { font-size:clamp(2rem,11vw,3.2rem); letter-spacing:-0.01em; } }
     .grad-text { background:linear-gradient(135deg,var(--y) 0%,var(--r) 38%,var(--b) 68%,var(--g) 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
     .welcome-sub { color:var(--sub); font-size:1.05rem; font-weight:300; margin-bottom:2.5rem; line-height:1.65; }
@@ -474,12 +474,12 @@ function generatePDF(name, sorted) {
   doc.setFont('helvetica','bold'); doc.setFontSize(7); tclr([150,150,175]);
   doc.text('YOUR PRIMARY PERSONALITY TYPE', ML, y); y+=8;
 
-  // accent bar + description — text spans full TW so it never clips the right edge
-  fill(pC); doc.rect(ML,y,3,25,'F');
-  const descLines = wrap(profiles[primary.color].full, TW - 6);
+  // accent bar + description — set font BEFORE wrap so splitTextToSize measures at render size
+  fill(pC); doc.rect(ML,y,3,40,'F');
   doc.setFont('helvetica','normal'); doc.setFontSize(9); tclr([35,35,60]);
-  doc.text(descLines.slice(0,6), ML + 6, y+5);
-  y += 32;
+  const descLines = wrap(profiles[primary.color].full, TW - 8);
+  doc.text(descLines, ML + 8, y+5);
+  y += Math.max(32, descLines.length * 5 + 6);
 
   // trait boxes
   const traitData = [
@@ -495,6 +495,8 @@ function generatePDF(name, sorted) {
     if (y > ph-28) { doc.addPage(); fill(WHITE); doc.rect(0,0,pw,ph,'F'); y=18; }
     const traitIndent = ML + 7;
     const traitW = pw - traitIndent - MR;
+    // Set render font BEFORE wrap
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.5); tclr([35,35,60]);
     const vLines = wrap(val, traitW);
     const bh = Math.max(13, vLines.length*4.2+7);
     fill(i%2===0 ? [248,248,253] : WHITE); doc.rect(ML,y,TW,bh,'F');
@@ -511,7 +513,7 @@ function generatePDF(name, sorted) {
   doc.setFont('helvetica','bold'); doc.setFontSize(7); tclr([150,150,175]);
   doc.text('MOTTO', ML, y); y+=6;
   doc.setFont('helvetica','italic'); doc.setFontSize(10); tclr(pC);
-  const mottoLines = wrap(profiles[primary.color].motto, TW);
+  const mottoLines = wrap(profiles[primary.color].motto, TW); // font already set above
   doc.text(mottoLines, ML, y);
 
   // ── PROFILE PAGES ──────────────────────────────────────────────────────
@@ -551,6 +553,8 @@ function generatePDF(name, sorted) {
         fill(WHITE); doc.rect(0,6,pw,ph-6,'F');
         cy = 16;
       }
+      // Set render font BEFORE wrap so splitTextToSize measures at correct size
+      doc.setFont('helvetica','normal'); doc.setFontSize(8.5); tclr([28,28,50]);
       const valLines = wrap(row.v, valW);
       const rowH = Math.max(9.5, valLines.length*4+5);
       if (ri%2===0){ fill([247,248,253]); doc.rect(ML-2,cy-3.5,TW+4,rowH+1,'F'); }
