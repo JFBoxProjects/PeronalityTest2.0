@@ -53,6 +53,7 @@
     .btn-white:hover { transform:translateY(-3px); box-shadow:0 14px 44px rgba(255,255,255,0.14); }
     .btn-white svg { transition:transform .2s; }
     .btn-white:hover svg { transform:translateX(4px); }
+    .btn-white:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
 
     /* ── Name ─────────────────────────────────── */
     .page-name { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:2rem; }
@@ -675,31 +676,55 @@ function WelcomePage({ onStart }) {
 // ─────────────── Name Page ─────────────────────────────────────────────────
 function NamePage({ onContinue }) {
   const [name, setName] = useState('');
+
+  const continueWithName = () => {
+    const cleanName = name.trim();
+
+    if (!cleanName) return;
+
+    onContinue(cleanName);
+  };
+
   return (
     <div className="page-name">
       <div className="name-card">
         <div className="color-bar-row">
-          {Object.values(CM).map(m=><div key={m.label} style={{background:m.hex}}/>)}
+          {Object.values(CM).map(m => (
+            <div key={m.label} style={{ background: m.hex }} />
+          ))}
         </div>
+
         <h2>What's your name?</h2>
         <p>We'll use it to personalize your results and PDF report.</p>
+
         <input
           className="input-field"
           type="text"
           placeholder="Your name..."
           value={name}
-          onChange={e=>setName(e.target.value)}
-          onKeyDown={e=>e.key==='Enter'&&onContinue(name)}
+          onChange={e => setName(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') continueWithName();
+          }}
           autoFocus
         />
-        <button className="btn-white" style={{width:'100%',justifyContent:'center'}} onClick={()=>onContinue(name)}>
+
+        <button
+          className="btn-white"
+          style={{ width: '100%', justifyContent: 'center' }}
+          onClick={continueWithName}
+          disabled={!name.trim()}
+        >
           Start Test
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <path
+              d="M3 8H13M13 8L9 4M13 8L9 12"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
-        </button>
-        <button className="skip-link" onClick={()=>onContinue('')}>
-          Skip — continue anonymously
         </button>
       </div>
     </div>
