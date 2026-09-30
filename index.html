@@ -186,9 +186,18 @@
 <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.development.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.development.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.22.10/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script type="text/babel">
 const { useState, useEffect, useRef } = React;
 const { jsPDF } = window.jspdf;
+const SUPABASE_URL = 'https://drqgjxczjxuurtzrtduh.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_JS0yy53Q1vv99AYJZqjWcg_7d9guTWH';
+
+const database = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_PUBLISHABLE_KEY
+);
+
 
 const CM = {
   yellow:{ hex:'#f59e0b', dim:'rgba(245,158,11,0.13)', label:'Yellow', rgb:[245,158,11] },
@@ -1061,24 +1070,93 @@ function App() {
   const [page, setPage]         = useState('welcome');
   const [rankings, setRankings] = useState({});
   const [userName, setUserName] = useState('');
+  const isSaving                = useRef(false);
+
+  const saveResults = async () => {
+    if (isSaving.current) return;
+    isSaving.current = true;
+
+    const totals = {
+      yellow: 0,
+      blue: 0,
+      red: 0,
+      green: 0
+    };
+
+    Object.values(rankings).forEach(question => {
+      Object.entries(question).forEach(([color, rank]) => {
+        totals[color] += rank;
+      });
+    });
+
+    const orderedColors = Object.entries(totals)
+      .map(([color, score]) => ({
+        color: CM[color].label,
+        score
+      }))
+      .sort((a, b) => b.score - a.score);
+
+    const { error } = await database
+      .from('Results')
+      .insert([
+        {
+          name: userName.trim() || 'Anonymous',
+          Color_1: orderedColors[0].color,
+          Color_2: orderedColors[1].color,
+          Color_3: orderedColors[2].color,
+          Color_4: orderedColors[3].color
+        }
+      ]);
+
+    if (error) {
+      console.error('Could not save results:', error);
+      alert('Your results could not be saved. Please try again.');
+      isSaving.current = false;
+      return;
+    }
+
+    setPage('results');
+  };
+
+  const retakeTest = () => {
+    setRankings({});
+    setUserName('');
+    isSaving.current = false;
+    setPage('welcome');
+  };
 
   return (
     <>
-      {page==='welcome'      && <WelcomePage onStart={()=>setPage('name')}/>}
-      {page==='name'         && <NamePage onContinue={n=>{ setUserName(n); setPage('instructions'); }}/>}
-      {page==='instructions' && <InstructionsPage onStart={()=>setPage('questions')}/>}
-      {page==='questions'    && (
+      {page === 'welcome' && (
+        <WelcomePage onStart={() => setPage('name')} />
+      )}
+
+      {page === 'name' && (
+        <NamePage
+          onContinue={name => {
+            setUserName(name);
+            setPage('instructions');
+          }}
+        />
+      )}
+
+      {page === 'instructions' && (
+        <InstructionsPage onStart={() => setPage('questions')} />
+      )}
+
+      {page === 'questions' && (
         <QuestionsPage
           rankings={rankings}
           setRankings={setRankings}
-          onSubmit={()=>setPage('results')}
+          onSubmit={saveResults}
         />
       )}
-      {page==='results'      && (
+
+      {page === 'results' && (
         <ResultsPage
           rankings={rankings}
           userName={userName}
-          onRetake={()=>{ setRankings({}); setPage('welcome'); }}
+          onRetake={retakeTest}
         />
       )}
     </>
