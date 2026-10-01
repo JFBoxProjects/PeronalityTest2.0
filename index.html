@@ -402,7 +402,7 @@ const summaryRows = [
 ];
 
 // ─────────────── PDF Generator ────────────────────────────────────────────
-function generatePDF(name, sorted) {
+function generatePDF(name, sorted, shouldDownload = true) {
   const doc = new jsPDF();
   const pw = doc.internal.pageSize.getWidth();
   const ph = doc.internal.pageSize.getHeight();
@@ -634,7 +634,15 @@ function generatePDF(name, sorted) {
     doc.text(`Color Personality Test  ·  ${displayName}  ·  Page ${i} of ${totalPages}`, pw/2, ph-7, {align:'center'});
   }
 
-  doc.save(`color-personality-${(name||'anonymous').toLowerCase().replace(/\s+/g,'-')}.pdf`);
+  const fileName = `color-personality-${(name || 'anonymous')
+  .toLowerCase()
+  .replace(/\s+/g, '-')}.pdf`;
+
+  if (shouldDownload) {
+  doc.save(fileName);
+  }
+
+  return doc.output('blob');
 }
 
 // ─────────────── Welcome Page ──────────────────────────────────────────────
@@ -1098,9 +1106,10 @@ function App() {
   const isSaving                = useRef(false);
 
   const saveResults = async () => {
-    if (isSaving.current) return;
-    isSaving.current = true;
+  if (isSaving.current) return;
+  isSaving.current = true;
 
+  try {
     const totals = {
       yellow: 0,
       blue: 0,
@@ -1114,35 +1123,72 @@ function App() {
       });
     });
 
-    const orderedColors = Object.entries(totals)
+    const sorted = Object.entries(totals)
       .map(([color, score]) => ({
-        color: CM[color].label,
+        color,
         score
       }))
       .sort((a, b) => b.score - a.score);
 
-    const { error } = await database
+    const resultId = crypto.randomUUID();
+    const cleanName = userName.trim();
+
+    const safeFileName =
+      cleanName
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'participant';
+
+    const pdfPath = `${safeFileName}-${resultId}.pdf`;
+
+    const { error: saveError } = await database
       .from('Results')
       .insert([
         {
-          name: userName.trim() || 'Anonymous',
-          Color_1: orderedColors[0].color,
-          Color_2: orderedColors[1].color,
-          Color_3: orderedColors[2].color,
-          Color_4: orderedColors[3].color
+          id: resultId,
+          name: cleanName,
+          Color_1: CM[sorted[0].color].label,
+          Color_2: CM[sorted[1].color].label,
+          Color_3: CM[sorted[2].color].label,
+          Color_4: CM[sorted[3].color].label
         }
       ]);
 
-    if (error) {
-      console.error('Could not save results:', error);
+    if (saveError) {
+      console.error('Could not save results:', saveError);
       alert('Your results could not be saved. Please try again.');
-      isSaving.current = false;
       return;
     }
 
-    setPage('results');
-  };
+    try {
+      const pdfBlob = generatePDF(cleanName, sorted, false);
 
+      const { error: pdfError } = await database.storage
+        .from('result-pdfs')
+        .upload(pdfPath, pdfBlob, {
+          contentType: 'application/pdf',
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (pdfError) throw pdfError;
+    } catch (pdfError) {
+      console.error('Results saved, but PDF upload failed:', pdfError);
+      alert(
+        'Your results were saved, but the stored PDF copy could not be created. You can still download the PDF from your results page.'
+      );
+    }
+
+    setPage('results');
+  } catch (unexpectedError) {
+    console.error('Unexpected saving error:', unexpectedError);
+    alert('Your results could not be saved. Please try again.');
+  } finally {
+    isSaving.current = false;
+  }
+};
   const retakeTest = () => {
     setRankings({});
     setUserName('');
