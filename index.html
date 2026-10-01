@@ -180,6 +180,40 @@
     .btn-dl:hover { transform:translateY(-3px); box-shadow:0 14px 44px rgba(255,255,255,.14); }
     .btn-retake { display:inline-flex; align-items:center; gap:7px; padding:10px 20px; background:transparent; color:var(--sub); border:1px solid var(--border); border-radius:100px; font-family:'Outfit',sans-serif; font-size:.88rem; cursor:pointer; margin-top:1rem; transition:all .2s; }
     .btn-retake:hover { color:var(--text); border-color:rgba(255,255,255,.18); }
+    /* Fix oversized titles on mobile */
+    @media (max-width: 480px) {
+      .welcome-title {
+        width: 100%;
+        max-width: 100%;
+        font-size: clamp(2rem, 10vw, 2.75rem);
+        line-height: 1.08;
+        text-align: center;
+        overflow-wrap: break-word;
+      }
+    
+      .primary-box {
+        padding: 1.7rem 1.2rem;
+      }
+    
+      .prim-type {
+        width: 100%;
+        max-width: 100%;
+        font-size: clamp(1.7rem, 8vw, 2.2rem);
+        line-height: 1.1;
+        text-align: center;
+        overflow-wrap: break-word;
+      }
+    
+      .prim-tag,
+      .prim-tag2 {
+        display: block;
+        width: fit-content;
+        max-width: 100%;
+        margin-left: auto;
+        margin-right: auto;
+        text-align: center;
+      }
+    }
   </style>
 </head>
 <body>
